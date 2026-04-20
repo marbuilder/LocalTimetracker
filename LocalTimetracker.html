@@ -1,0 +1,1307 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+  <title>Lokaler Zeit-Tracker</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #141b2d;
+      --panel-2: #0f1525;
+      --text: #ebeff8;
+      --muted: #9aa5bf;
+      --accent: #6aa9ff;
+      --good: #30c48d;
+      --warn: #ffb020;
+      --bad: #ff6b6b;
+      --border: #24304a;
+      --chart-fill: rgba(106,169,255,.82);
+      --chart-grid: rgba(255,255,255,.08);
+      --chart-c1: rgba(106,169,255,.88);
+      --chart-c2: rgba(48,196,141,.88);
+      --chart-c3: rgba(255,176,32,.88);
+      --chart-c4: rgba(255,107,107,.88);
+      --chart-c5: rgba(180,133,255,.88);
+      --chart-c6: rgba(76,209,255,.88);
+      --chart-c7: rgba(255,140,190,.88);
+      --chart-c8: rgba(163,230,53,.88);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, var(--bg), #0f172a 35%, #0c1322 100%);
+      color: var(--text);
+    }
+    .container { max-width: 1380px; margin: 0 auto; padding: 20px; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    p { color: var(--muted); }
+    .grid { display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr; }
+    .panel {
+      background: rgba(20,27,45,.95);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+    }
+    .panel.full { grid-column: 1 / -1; }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+    .field { grid-column: span 12; }
+    .field.s3 { grid-column: span 3; }
+    .field.s6 { grid-column: span 6; }
+    .field.s12 { grid-column: span 12; }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select, button, textarea {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    button {
+      cursor: pointer;
+      background: #1b2741;
+      transition: transform .08s ease, opacity .15s ease, background .15s ease;
+    }
+    button:hover { background: #223050; }
+    button:active { transform: translateY(1px); }
+    button.primary { background: #2456b8; }
+    button.good { background: #136c4b; }
+    button.warn { background: #8f6111; }
+    button.bad { background: #7f2c2c; }
+    button.ghost { background: transparent; border-color: #3b4a6a; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+    .day-nav {
+      display: grid;
+      grid-template-columns: auto auto minmax(180px, 220px) auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .ticket-stack { display: grid; grid-template-columns: 1fr; gap: 8px; width: 100%; }
+    .ticket-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+      width: 100%;
+    }
+    .ticket-main-input { width: 100%; }
+    .ticket-preset-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+    }
+    .ticket-preset-row > * { min-width: 0; }
+    .ticket-preset-row button { width: auto; min-width: 128px; white-space: nowrap; }
+    .ticket-help { margin-top: 2px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .stat { padding: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; }
+    .stat .value { font-size: 24px; font-weight: 700; }
+    .stat .label { color: var(--muted); font-size: 13px; }
+    .current {
+      display: flex; justify-content: space-between; gap: 12px; align-items: center;
+      padding: 12px; background: rgba(36,86,184,.15);
+      border: 1px solid rgba(106,169,255,.35); border-radius: 12px; margin-bottom: 14px;
+    }
+    .pill {
+      display: inline-flex; gap: 8px; align-items: center;
+      background: rgba(48,196,141,.15); color: #b8f0d8;
+      border: 1px solid rgba(48,196,141,.25); border-radius: 999px; padding: 6px 10px; font-size: 13px;
+    }
+    .muted { color: var(--muted); }
+    table {
+      width: 100%; border-collapse: collapse; overflow: hidden;
+      border-radius: 12px; border: 1px solid var(--border);
+    }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #10182b; color: #c9d4ec; font-size: 13px; }
+    tr:nth-child(even) td { background: rgba(255,255,255,.01); }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions button { width: auto; min-height: 34px; padding: 6px 10px; font-size: 13px; }
+    .summary-table td:first-child, .summary-table th:first-child { width: 18%; }
+    .footer-note { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    dialog {
+      width: min(780px, calc(100vw - 24px)); border: 1px solid var(--border);
+      border-radius: 14px; background: #11192b; color: var(--text); padding: 0;
+    }
+    dialog::backdrop { background: rgba(0,0,0,.55); }
+    .dialog-head, .dialog-body, .dialog-foot { padding: 16px; }
+    .dialog-head { border-bottom: 1px solid var(--border); }
+    .dialog-foot { border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+    .empty {
+      padding: 18px; border: 1px dashed #3a4865; border-radius: 12px;
+      color: var(--muted); background: rgba(255,255,255,.015);
+    }
+    .compact-menu {
+      width: 100%; border: 1px solid var(--border); border-radius: 12px;
+      background: rgba(255,255,255,.015); overflow: hidden; margin-bottom: 14px;
+    }
+    .compact-menu summary {
+      cursor: pointer; list-style: none; padding: 12px; user-select: none;
+      color: var(--text); font-weight: 600;
+    }
+    .compact-menu summary::-webkit-details-marker { display: none; }
+    .compact-menu summary::after { content: "▾"; float: right; color: var(--muted); }
+    .compact-menu[open] summary::after { content: "▴"; }
+    .compact-inner { padding: 0 12px 12px; border-top: 1px solid var(--border); }
+    .compact-hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+    .chart-wrap {
+      margin-top: 14px; padding: 12px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 12px;
+    }
+    .chart-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+    .chart-title { font-size: 14px; font-weight: 600; }
+    .chart-subtitle { font-size: 12px; color: var(--muted); }
+    #summaryChart {
+      display: block; width: 100%; height: 320px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border-radius: 10px;
+    }
+    @media (max-width: 1050px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .day-nav { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .row { grid-template-columns: 1fr; }
+      .field, .field.s3, .field.s6, .field.s12 { grid-column: span 1; }
+      .stats { grid-template-columns: 1fr; }
+      .ticket-row { grid-template-columns: 1fr; }
+      .ticket-preset-row { grid-template-columns: 1fr; }
+      .ticket-preset-row button { width: 100%; }
+      .day-nav { grid-template-columns: 1fr; }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr { border-bottom: 1px solid var(--border); }
+      td { border: none; padding: 8px 10px; }
+      td::before { content: attr(data-label) ": "; color: var(--muted); font-weight: 600; }
+      #summaryChart { height: 280px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel full">
+      <h1>Lokaler Zeit-Tracker</h1>
+      <p>Vollständig lokal im Browser, ohne externe Bibliotheken. Daten werden in <code>localStorage</code> gespeichert und können zusätzlich als JSON exportiert/importiert werden.</p>
+      <div id="currentTimer" class="current"></div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Timer starten</h2>
+        <div class="row">
+          <div class="field s12">
+            <label for="ticketNumber">Ticket-Nr. *</label>
+            <div class="ticket-stack">
+              <div class="ticket-row">
+                <input id="ticketNumber" class="ticket-main-input" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" list="ticketSuggestions">
+                <div class="ticket-preset-row">
+                  <select id="ticketNumberPreset"></select>
+                  <button id="applyTicketTimerBtn" type="button" class="ghost">Übernehmen</button>
+                </div>
+              </div>
+            </div>
+            <div class="ticket-help">Ticket frei eingeben oder eine Vorauswahl aus der Liste in das Feld übernehmen.</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s6">
+            <label for="taskName">Aufgabe (optional)</label>
+            <input id="taskName" maxlength="120" placeholder="Optional" autocomplete="off">
+          </div>
+          <div class="field s6">
+            <label for="taskProject">Projekt / Bereich</label>
+            <input id="taskProject" maxlength="120" placeholder="Optional" autocomplete="off">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s12">
+            <label for="taskNotes">Notizen</label>
+            <textarea id="taskNotes" placeholder="Optional"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="startBtn" class="good">Start</button>
+          <button id="stopBtn" class="warn">Stop</button>
+          <button id="resetFormBtn" class="ghost">Felder leeren</button>
+        </div>
+        <div class="footer-note">Sicherheitsaspekt: keine externen Requests, keine Drittanbieter-Skripte, keine Ausführung von Benutzereingaben als HTML.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Manuellen Eintrag anlegen</h2>
+        <div class="row">
+          <div class="field s12">
+            <label for="manualTicket">Ticket-Nr. *</label>
+            <div class="ticket-stack">
+              <div class="ticket-row">
+                <input id="manualTicket" class="ticket-main-input" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" list="ticketSuggestions">
+                <div class="ticket-preset-row">
+                  <select id="manualTicketPreset"></select>
+                  <button id="applyTicketManualBtn" type="button" class="ghost">Übernehmen</button>
+                </div>
+              </div>
+            </div>
+            <div class="ticket-help">Auswahl übernimmt den Wert ins Eingabefeld. Eigene Tickets bleiben möglich.</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s6">
+            <label for="manualTask">Aufgabe (optional)</label>
+            <input id="manualTask" maxlength="120" placeholder="Optional">
+          </div>
+          <div class="field s6">
+            <label for="manualProject">Projekt / Bereich</label>
+            <input id="manualProject" maxlength="120" placeholder="Optional">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s3">
+            <label for="manualDate">Datum</label>
+            <input id="manualDate" type="date">
+          </div>
+          <div class="field s3">
+            <label for="manualStart">Start</label>
+            <input id="manualStart" type="time" step="60">
+          </div>
+          <div class="field s3">
+            <label for="manualEnd">Ende</label>
+            <input id="manualEnd" type="time" step="60">
+          </div>
+          <div class="field s3">
+            <label for="manualPause">Pause (Min.)</label>
+            <input id="manualPause" type="number" min="0" step="1" value="0">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s12">
+            <label for="manualNotes">Notizen</label>
+            <textarea id="manualNotes" placeholder="Optional"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="addManualBtn" class="primary">Manuellen Eintrag speichern</button>
+        </div>
+      </section>
+
+      <section class="panel full">
+        <h2>Filter & Auswertung</h2>
+
+        <details class="compact-menu">
+          <summary>Optionen ein-/ausklappen</summary>
+          <div class="compact-inner">
+            <p class="compact-hint">Alle Filter-, Export-, Import- und Verwaltungsoptionen sind hier gebündelt.</p>
+
+            <div class="day-nav">
+              <button id="prevDayBtn" type="button" class="ghost">← Vortag</button>
+              <button id="todayBtn" type="button" class="ghost">Heute</button>
+              <input id="dayFocus" type="date">
+              <button id="nextDayBtn" type="button" class="ghost">Nächster Tag →</button>
+            </div>
+
+            <div class="row">
+              <div class="field s3">
+                <label for="filterFrom">Von</label>
+                <input id="filterFrom" type="date">
+              </div>
+              <div class="field s3">
+                <label for="filterTo">Bis</label>
+                <input id="filterTo" type="date">
+              </div>
+              <div class="field s3">
+                <label for="filterTicket">Ticket / Aufgabe / Projekt</label>
+                <input id="filterTicket" placeholder="Suche..." autocomplete="off">
+              </div>
+              <div class="field s3">
+                <label for="groupBy">Gruppierung</label>
+                <select id="groupBy">
+                  <option value="ticket">Nach Ticket</option>
+                  <option value="task">Nach Aufgabe</option>
+                  <option value="project">Nach Projekt</option>
+                  <option value="day">Nach Tag</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <button id="applyDayBtn" class="primary" type="button">Tag anzeigen</button>
+              <button id="clearFiltersBtn" class="ghost">Filter zurücksetzen</button>
+              <button id="exportJsonBtn">Export JSON</button>
+              <button id="exportCsvBtn">Export CSV</button>
+              <button id="importBtn">Import JSON</button>
+              <button id="clearAllBtn" class="bad">Alle Daten löschen</button>
+              <input id="importFile" type="file" accept="application/json,.json" hidden>
+            </div>
+          </div>
+        </details>
+
+        <div id="summaryContainer"></div>
+
+        <div class="chart-wrap">
+          <div class="chart-head">
+            <div class="chart-title">Diagramm</div>
+            <div id="chartSubtitle" class="chart-subtitle">Keine Daten</div>
+          </div>
+          <canvas id="summaryChart" width="1200" height="320" aria-label="Auswertungsdiagramm"></canvas>
+        </div>
+      </section>
+
+      <section class="panel full">
+        <h2>Einträge</h2>
+        <div id="entriesContainer"></div>
+      </section>
+    </div>
+  </div>
+
+  <dialog id="editDialog">
+    <div class="dialog-head"><h3>Eintrag bearbeiten</h3></div>
+    <div class="dialog-body">
+      <input id="editId" type="hidden">
+      <div class="row">
+        <div class="field s12">
+          <label for="editTicket">Ticket-Nr. *</label>
+          <div class="ticket-stack">
+            <div class="ticket-row">
+              <input id="editTicket" class="ticket-main-input" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" list="ticketSuggestions">
+              <div class="ticket-preset-row">
+                <select id="editTicketPreset"></select>
+                <button id="applyTicketEditBtn" type="button" class="ghost">Übernehmen</button>
+              </div>
+            </div>
+          </div>
+          <div class="ticket-help">Vorauswahl kann in das Freifeld übernommen und dort weiter angepasst werden.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field s6"><label for="editTask">Aufgabe (optional)</label><input id="editTask" maxlength="120" placeholder="Optional"></div>
+        <div class="field s6"><label for="editProject">Projekt / Bereich</label><input id="editProject" maxlength="120" placeholder="Optional"></div>
+      </div>
+      <div class="row">
+        <div class="field s3"><label for="editDate">Datum</label><input id="editDate" type="date"></div>
+        <div class="field s3"><label for="editStart">Start</label><input id="editStart" type="time" step="60"></div>
+        <div class="field s3"><label for="editEnd">Ende</label><input id="editEnd" type="time" step="60"></div>
+        <div class="field s3"><label for="editPause">Pause (Min.)</label><input id="editPause" type="number" min="0" step="1"></div>
+      </div>
+      <div class="row">
+        <div class="field s12"><label for="editNotes">Notizen</label><textarea id="editNotes"></textarea></div>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button id="cancelEditBtn" class="ghost">Abbrechen</button>
+      <button id="saveEditBtn" class="primary">Speichern</button>
+    </div>
+  </dialog>
+
+  <datalist id="ticketSuggestions"></datalist>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'local-time-tracker-v1';
+      const CUSTOM_TICKETS_KEY = STORAGE_KEY + '-ticket-suggestions';
+      const TICKET_PRESETS = [
+        'Example-Ticket-01'
+      ];
+
+      const dom = {};
+      const qs = (id) => document.getElementById(id);
+
+      let customTickets = loadCustomTickets();
+      const state = loadState();
+      bindElements();
+      populateTicketPresets();
+      populateTicketSuggestions();
+      initDefaults();
+      bindEvents();
+      renderAll();
+      setInterval(() => renderCurrentTimer(), 1000);
+
+      function bindElements() {
+        [
+          'ticketNumber','ticketNumberPreset','applyTicketTimerBtn','taskName','taskProject','taskNotes','startBtn','stopBtn','resetFormBtn',
+          'manualTicket','manualTicketPreset','applyTicketManualBtn','manualTask','manualProject','manualDate','manualStart','manualEnd','manualPause','manualNotes','addManualBtn',
+          'filterFrom','filterTo','filterTicket','groupBy','clearFiltersBtn','exportJsonBtn','exportCsvBtn','importBtn','importFile','clearAllBtn','ticketSuggestions',
+          'prevDayBtn','todayBtn','nextDayBtn','dayFocus','applyDayBtn',
+          'currentTimer','stats','summaryContainer','entriesContainer','summaryChart','chartSubtitle',
+          'editDialog','editId','editTicket','editTicketPreset','applyTicketEditBtn','editTask','editProject','editDate','editStart','editEnd','editPause','editNotes','cancelEditBtn','saveEditBtn'
+        ].forEach(id => dom[id] = qs(id));
+      }
+
+      function loadCustomTickets() {
+        try {
+          const raw = localStorage.getItem(CUSTOM_TICKETS_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed.map(ticket => sanitizeText(ticket, 60)).filter(Boolean) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveCustomTickets() {
+        localStorage.setItem(CUSTOM_TICKETS_KEY, JSON.stringify(customTickets));
+      }
+
+      function getAllTickets() {
+        return [...new Set([...TICKET_PRESETS, ...customTickets].map(ticket => sanitizeText(ticket, 60)).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b, 'de'));
+      }
+
+      function populateTicketPresets() {
+        const tickets = getAllTickets();
+        [dom.ticketNumberPreset, dom.manualTicketPreset, dom.editTicketPreset].forEach(select => {
+          select.innerHTML = '';
+          const emptyOption = document.createElement('option');
+          emptyOption.value = '';
+          emptyOption.textContent = 'Aus Liste wählen';
+          select.appendChild(emptyOption);
+          tickets.forEach(ticket => {
+            const option = document.createElement('option');
+            option.value = ticket;
+            option.textContent = ticket;
+            select.appendChild(option);
+          });
+        });
+      }
+
+      function populateTicketSuggestions() {
+        const tickets = getAllTickets();
+        dom.ticketSuggestions.innerHTML = '';
+        tickets.forEach(ticket => {
+          const option = document.createElement('option');
+          option.value = ticket;
+          dom.ticketSuggestions.appendChild(option);
+        });
+      }
+
+      function rememberTicket(ticket) {
+        const clean = sanitizeText(ticket, 60);
+        if (!clean) return;
+        if (TICKET_PRESETS.includes(clean) || customTickets.includes(clean)) return;
+        customTickets.push(clean);
+        customTickets.sort((a, b) => a.localeCompare(b, 'de'));
+        saveCustomTickets();
+        populateTicketPresets();
+        populateTicketSuggestions();
+      }
+
+      function rememberTicketsFromEntries(entries) {
+        let changed = false;
+        entries.forEach(entry => {
+          const clean = sanitizeText(entry.ticket, 60);
+          if (!clean) return;
+          if (TICKET_PRESETS.includes(clean) || customTickets.includes(clean)) return;
+          customTickets.push(clean);
+          changed = true;
+        });
+        if (changed) {
+          customTickets = [...new Set(customTickets)].sort((a, b) => a.localeCompare(b, 'de'));
+          saveCustomTickets();
+          populateTicketPresets();
+          populateTicketSuggestions();
+        }
+      }
+
+      function applyPresetToInput(selectEl, inputEl) {
+        const value = sanitizeText(selectEl.value, 60);
+        if (!value) return;
+        inputEl.value = value;
+        inputEl.focus();
+        inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+      }
+
+      function initDefaults() {
+        const today = formatDateInput(new Date());
+        dom.manualDate.value = today;
+        dom.dayFocus.value = today;
+        applyFocusedDay(today);
+      }
+
+      function bindEvents() {
+        dom.startBtn.addEventListener('click', startTimer);
+        dom.stopBtn.addEventListener('click', stopTimer);
+        dom.resetFormBtn.addEventListener('click', () => {
+          dom.ticketNumber.value = '';
+          dom.ticketNumberPreset.value = '';
+          dom.taskName.value = '';
+          dom.taskProject.value = '';
+          dom.taskNotes.value = '';
+        });
+
+        dom.applyTicketTimerBtn.addEventListener('click', () => applyPresetToInput(dom.ticketNumberPreset, dom.ticketNumber));
+        dom.applyTicketManualBtn.addEventListener('click', () => applyPresetToInput(dom.manualTicketPreset, dom.manualTicket));
+        dom.applyTicketEditBtn.addEventListener('click', () => applyPresetToInput(dom.editTicketPreset, dom.editTicket));
+
+        dom.ticketNumberPreset.addEventListener('change', () => applyPresetToInput(dom.ticketNumberPreset, dom.ticketNumber));
+        dom.manualTicketPreset.addEventListener('change', () => applyPresetToInput(dom.manualTicketPreset, dom.manualTicket));
+        dom.editTicketPreset.addEventListener('change', () => applyPresetToInput(dom.editTicketPreset, dom.editTicket));
+
+        dom.addManualBtn.addEventListener('click', addManualEntry);
+        [dom.filterFrom, dom.filterTo, dom.filterTicket, dom.groupBy].forEach(el => el.addEventListener('input', renderAll));
+
+        dom.dayFocus.addEventListener('change', () => {
+          if (!dom.dayFocus.value) return;
+          applyFocusedDay(dom.dayFocus.value);
+          renderAll();
+        });
+        dom.applyDayBtn.addEventListener('click', () => {
+          if (!dom.dayFocus.value) return;
+          applyFocusedDay(dom.dayFocus.value);
+          renderAll();
+        });
+        dom.todayBtn.addEventListener('click', () => {
+          const today = formatDateInput(new Date());
+          dom.dayFocus.value = today;
+          applyFocusedDay(today);
+          renderAll();
+        });
+        dom.prevDayBtn.addEventListener('click', () => shiftFocusedDay(-1));
+        dom.nextDayBtn.addEventListener('click', () => shiftFocusedDay(1));
+
+        dom.clearFiltersBtn.addEventListener('click', () => {
+          const today = formatDateInput(new Date());
+          dom.filterTicket.value = '';
+          dom.groupBy.value = 'ticket';
+          dom.dayFocus.value = today;
+          applyFocusedDay(today);
+          renderAll();
+        });
+        dom.exportJsonBtn.addEventListener('click', exportJson);
+        dom.exportCsvBtn.addEventListener('click', exportCsv);
+        dom.importBtn.addEventListener('click', () => dom.importFile.click());
+        dom.importFile.addEventListener('change', importJson);
+        dom.clearAllBtn.addEventListener('click', clearAllData);
+        dom.cancelEditBtn.addEventListener('click', () => dom.editDialog.close());
+        dom.saveEditBtn.addEventListener('click', saveEditEntry);
+        window.addEventListener('resize', () => renderChart(buildSummaryRows(getFilteredEntries(), dom.groupBy.value)));
+      }
+
+      function applyFocusedDay(dateStr) {
+        dom.filterFrom.value = dateStr;
+        dom.filterTo.value = dateStr;
+      }
+
+      function shiftFocusedDay(deltaDays) {
+        const base = dom.dayFocus.value ? new Date(dom.dayFocus.value + 'T00:00:00') : new Date();
+        base.setDate(base.getDate() + deltaDays);
+        const next = formatDateInput(base);
+        dom.dayFocus.value = next;
+        applyFocusedDay(next);
+        renderAll();
+      }
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return { entries: [], activeTimer: null };
+          const parsed = JSON.parse(raw);
+          return {
+            entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+            activeTimer: parsed.activeTimer && typeof parsed.activeTimer === 'object' ? parsed.activeTimer : null
+          };
+        } catch {
+          return { entries: [], activeTimer: null };
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function startTimer() {
+        const ticket = sanitizeText(dom.ticketNumber.value, 60);
+        const task = sanitizeText(dom.taskName.value, 120);
+        const project = sanitizeText(dom.taskProject.value, 120);
+        const notes = sanitizeText(dom.taskNotes.value, 2000);
+
+        if (!ticket) {
+          alert('Bitte Ticket-Nr. angeben.');
+          return;
+        }
+
+        rememberTicket(ticket);
+
+        if (state.activeTimer) {
+          const replace = confirm('Es läuft bereits ein Timer. Soll dieser zuerst gestoppt und der neue gestartet werden?');
+          if (!replace) return;
+          internalStopTimer();
+        }
+
+        state.activeTimer = { id: cryptoRandomId(), ticket, task, project, notes, startTs: Date.now() };
+        saveState();
+        renderAll();
+      }
+
+      function stopTimer() {
+        if (!state.activeTimer) {
+          alert('Aktuell läuft kein Timer.');
+          return;
+        }
+        internalStopTimer();
+        renderAll();
+      }
+
+      function internalStopTimer() {
+        const active = state.activeTimer;
+        if (!active) return;
+        const endTs = Date.now();
+        if (endTs <= active.startTs) {
+          alert('Ungültige Zeitspanne erkannt.');
+          return;
+        }
+        state.entries.push({
+          id: active.id, ticket: active.ticket, task: active.task, project: active.project, notes: active.notes,
+          startTs: active.startTs, endTs, pauseMinutes: 0, createdAt: Date.now(), source: 'timer'
+        });
+        state.activeTimer = null;
+        saveState();
+      }
+
+      function addManualEntry() {
+        const ticket = sanitizeText(dom.manualTicket.value, 60);
+        const task = sanitizeText(dom.manualTask.value, 120);
+        const project = sanitizeText(dom.manualProject.value, 120);
+        const date = dom.manualDate.value;
+        const start = dom.manualStart.value;
+        const end = dom.manualEnd.value;
+        const pauseMinutes = clampNumber(dom.manualPause.value, 0, 24 * 60);
+        const notes = sanitizeText(dom.manualNotes.value, 2000);
+
+        if (!ticket || !date || !start || !end) {
+          alert('Bitte Ticket-Nr., Datum, Start und Ende angeben.');
+          return;
+        }
+
+        rememberTicket(ticket);
+
+        const startTs = localDateTimeToTs(date, start);
+        const endTs = localDateTimeToTs(date, end);
+        if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) {
+          alert('Die eingegebene Zeit ist ungültig. Ende muss nach Start liegen.');
+          return;
+        }
+        if ((endTs - startTs) / 60000 <= pauseMinutes) {
+          alert('Die Pause ist größer oder gleich der gesamten Zeitspanne.');
+          return;
+        }
+
+        state.entries.push({
+          id: cryptoRandomId(), ticket, task, project, notes, startTs, endTs, pauseMinutes,
+          createdAt: Date.now(), source: 'manual'
+        });
+        saveState();
+        dom.manualTicket.value = '';
+        dom.manualTicketPreset.value = '';
+        dom.manualTask.value = '';
+        dom.manualProject.value = '';
+        dom.manualStart.value = '';
+        dom.manualEnd.value = '';
+        dom.manualPause.value = '0';
+        dom.manualNotes.value = '';
+        renderAll();
+      }
+
+      function renderAll() {
+        renderCurrentTimer();
+        renderStats();
+        renderSummaryAndChart();
+        renderEntries();
+      }
+
+      function renderCurrentTimer() {
+        if (!state.activeTimer) {
+          dom.currentTimer.innerHTML = '<div><strong>Kein aktiver Timer</strong><div class="muted">Du kannst oben einen neuen Timer starten.</div></div><div></div>';
+          return;
+        }
+        const a = state.activeTimer;
+        const elapsedMs = Date.now() - a.startTs;
+        dom.currentTimer.innerHTML = '';
+        const left = document.createElement('div');
+        const ticketLabel = a.ticket ? `<strong>${escapeHtml(a.ticket)}</strong>${a.task ? ' · ' : ''}` : '';
+        left.innerHTML = `<div class="pill">● Aktiv</div><div style="margin-top:8px;">${ticketLabel}${escapeHtml(a.task || '')}</div><div class="muted">${escapeHtml(a.project || 'Kein Projekt')} · Start: ${formatDateTime(a.startTs)}</div>`;
+        const right = document.createElement('div');
+        right.innerHTML = `<div style="font-size:28px;font-weight:800;">${formatDuration(elapsedMs)}</div><div class="muted">Live-Laufzeit</div>`;
+        dom.currentTimer.append(left, right);
+      }
+
+      function renderStats() {
+        const filtered = getFilteredEntries();
+        const totalMs = filtered.reduce((sum, e) => sum + getNetDurationMs(e), 0);
+        const uniqueTickets = new Set(filtered.filter(e => e.ticket).map(e => e.ticket)).size;
+        const avgMs = filtered.length ? Math.round(totalMs / filtered.length) : 0;
+        const stats = [
+          ['Gesamtzeit', formatDuration(totalMs)],
+          ['Einträge', String(filtered.length)],
+          ['Tickets', String(uniqueTickets)],
+          ['Ø pro Eintrag', formatDuration(avgMs)]
+        ];
+        dom.stats.innerHTML = '';
+        stats.forEach(([label, value]) => {
+          const el = document.createElement('div');
+          el.className = 'stat';
+          el.innerHTML = `<div class="value">${escapeHtml(value)}</div><div class="label">${escapeHtml(label)}</div>`;
+          dom.stats.appendChild(el);
+        });
+      }
+
+      function renderSummaryAndChart() {
+        const filtered = getFilteredEntries();
+        if (!filtered.length) {
+          dom.summaryContainer.innerHTML = '<div class="empty">Keine Daten für den gewählten Tag bzw. die aktuelle Filterung vorhanden.</div>';
+          renderChart([]);
+          return;
+        }
+
+        const rows = buildSummaryRows(filtered, dom.groupBy.value);
+        const table = document.createElement('table');
+        table.className = 'summary-table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Gruppe</th>
+              <th>Gesamtzeit</th>
+              <th>Einträge</th>
+              <th>Tickets</th>
+              <th>Aufgaben</th>
+              <th>Projekte</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td data-label="Gruppe">${escapeHtml(row.key)}</td>
+            <td data-label="Gesamtzeit">${escapeHtml(formatDuration(row.ms))}</td>
+            <td data-label="Einträge">${row.count}</td>
+            <td data-label="Tickets">${row.tickets.size}</td>
+            <td data-label="Aufgaben">${row.tasks.size}</td>
+            <td data-label="Projekte">${row.projects.size}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        dom.summaryContainer.innerHTML = '';
+        dom.summaryContainer.appendChild(table);
+        renderChart(rows);
+      }
+
+      function buildSummaryRows(filtered, groupBy) {
+        const groups = new Map();
+        filtered.forEach(entry => {
+          const key = getGroupKey(entry, groupBy);
+          const row = groups.get(key) || { key, ms: 0, count: 0, tickets: new Set(), tasks: new Set(), projects: new Set() };
+          row.ms += getNetDurationMs(entry);
+          row.count += 1;
+          if (entry.ticket) row.tickets.add(entry.ticket);
+          if (entry.task) row.tasks.add(entry.task);
+          if (entry.project) row.projects.add(entry.project);
+          groups.set(key, row);
+        });
+        return [...groups.values()].sort((a, b) => b.ms - a.ms);
+      }
+
+      function renderChart(rows) {
+        const canvas = dom.summaryChart;
+        const ctx = canvas.getContext('2d');
+        const ratio = Math.max(1, window.devicePixelRatio || 1);
+        const cssWidth = Math.max(320, canvas.clientWidth || 1200);
+        const cssHeight = Math.max(260, canvas.clientHeight || 320);
+        canvas.width = Math.round(cssWidth * ratio);
+        canvas.height = Math.round(cssHeight * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+        if (!rows.length) {
+          dom.chartSubtitle.textContent = 'Keine Daten für das Diagramm';
+          ctx.fillStyle = '#9aa5bf';
+          ctx.font = '14px system-ui, sans-serif';
+          ctx.fillText('Keine Daten vorhanden', 16, 24);
+          return;
+        }
+
+        const topRows = rows.slice(0, 8);
+        dom.chartSubtitle.textContent = `Top ${topRows.length} nach ${groupLabel(dom.groupBy.value)} am ${formatDateDisplay(dom.filterFrom.value)}`;
+
+        const pad = { top: 18, right: 18, bottom: 72, left: 72 };
+        const chartWidth = cssWidth - pad.left - pad.right;
+        const chartHeight = cssHeight - pad.top - pad.bottom;
+        const maxValue = Math.max(...topRows.map(r => r.ms), 1);
+        const gridSteps = 4;
+
+        ctx.strokeStyle = 'rgba(255,255,255,.08)';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#9aa5bf';
+        ctx.font = '12px system-ui, sans-serif';
+
+        for (let i = 0; i <= gridSteps; i++) {
+          const y = pad.top + (chartHeight / gridSteps) * i;
+          ctx.beginPath();
+          ctx.moveTo(pad.left, y);
+          ctx.lineTo(pad.left + chartWidth, y);
+          ctx.stroke();
+          const value = maxValue * (1 - i / gridSteps);
+          ctx.fillText(formatHoursLabel(value), 8, y + 4);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(pad.left, pad.top);
+        ctx.lineTo(pad.left, pad.top + chartHeight);
+        ctx.lineTo(pad.left + chartWidth, pad.top + chartHeight);
+        ctx.strokeStyle = 'rgba(255,255,255,.18)';
+        ctx.stroke();
+
+        const gap = 16;
+        const barWidth = Math.max(24, (chartWidth - gap * (topRows.length - 1)) / topRows.length);
+
+        topRows.forEach((row, index) => {
+          const x = pad.left + index * (barWidth + gap);
+          const barHeight = Math.max(2, (row.ms / maxValue) * chartHeight);
+          const y = pad.top + chartHeight - barHeight;
+          const barColors = [
+            getCssVar('--chart-c1'), getCssVar('--chart-c2'), getCssVar('--chart-c3'), getCssVar('--chart-c4'),
+            getCssVar('--chart-c5'), getCssVar('--chart-c6'), getCssVar('--chart-c7'), getCssVar('--chart-c8')
+          ];
+          ctx.fillStyle = barColors[index % barColors.length] || getCssVar('--chart-fill');
+          roundRect(ctx, x, y, barWidth, barHeight, 8);
+          ctx.fill();
+
+          ctx.fillStyle = '#ebeff8';
+          ctx.font = '12px system-ui, sans-serif';
+          const durationText = formatHoursLabel(row.ms);
+          const durationWidth = ctx.measureText(durationText).width;
+          ctx.fillText(durationText, x + Math.max(0, (barWidth - durationWidth) / 2), y - 8);
+
+          ctx.fillStyle = '#c9d4ec';
+          wrapLabel(ctx, truncate(row.key, 18), x + barWidth / 2, pad.top + chartHeight + 18, Math.max(48, barWidth + 12), 14);
+        });
+      }
+
+      function getCssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+
+      function wrapLabel(ctx, text, centerX, startY, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        const lines = [];
+        let current = '';
+        for (const word of words) {
+          const test = current ? current + ' ' + word : word;
+          if (ctx.measureText(test).width > maxWidth && current) {
+            lines.push(current);
+            current = word;
+          } else {
+            current = test;
+          }
+        }
+        if (current) lines.push(current);
+        lines.slice(0, 2).forEach((line, i) => {
+          const width = ctx.measureText(line).width;
+          ctx.fillText(line, centerX - width / 2, startY + i * lineHeight);
+        });
+      }
+
+      function formatHoursLabel(ms) {
+        const hours = ms / 3600000;
+        return `${hours.toFixed(2)} h`;
+      }
+
+      function groupLabel(mode) {
+        switch (mode) {
+          case 'task': return 'Aufgabe';
+          case 'project': return 'Projekt';
+          case 'day': return 'Tag';
+          default: return 'Ticket';
+        }
+      }
+
+      function renderEntries() {
+        const filtered = getFilteredEntries().sort((a, b) => b.startTs - a.startTs);
+        if (!filtered.length) {
+          dom.entriesContainer.innerHTML = '<div class="empty">Noch keine Einträge für den gewählten Tag vorhanden.</div>';
+          return;
+        }
+        const table = document.createElement('table');
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Ticket</th>
+              <th>Aufgabe</th>
+              <th>Projekt</th>
+              <th>Von</th>
+              <th>Bis</th>
+              <th>Pause</th>
+              <th>Netto</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        filtered.forEach(entry => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td data-label="Datum">${escapeHtml(formatDateOnly(entry.startTs))}</td>
+            <td data-label="Ticket"><strong>${escapeHtml(entry.ticket || '—')}</strong></td>
+            <td data-label="Aufgabe">${escapeHtml(entry.task || '—')}${entry.notes ? `<div class="muted" style="margin-top:4px;">${escapeHtml(truncate(entry.notes, 140))}</div>` : ''}</td>
+            <td data-label="Projekt">${escapeHtml(entry.project || '—')}</td>
+            <td data-label="Von">${escapeHtml(formatTimeOnly(entry.startTs))}</td>
+            <td data-label="Bis">${escapeHtml(formatTimeOnly(entry.endTs))}</td>
+            <td data-label="Pause">${entry.pauseMinutes || 0} min</td>
+            <td data-label="Netto">${escapeHtml(formatDuration(getNetDurationMs(entry)))}</td>
+            <td data-label="Aktionen"></td>
+          `;
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Bearbeiten';
+          editBtn.addEventListener('click', () => openEditDialog(entry.id));
+          const cloneBtn = document.createElement('button');
+          cloneBtn.textContent = 'Duplizieren';
+          cloneBtn.addEventListener('click', () => duplicateEntry(entry.id));
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = 'Löschen';
+          deleteBtn.className = 'bad';
+          deleteBtn.addEventListener('click', () => deleteEntry(entry.id));
+          actions.append(editBtn, cloneBtn, deleteBtn);
+          tr.querySelector('td:last-child').appendChild(actions);
+          tbody.appendChild(tr);
+        });
+        dom.entriesContainer.innerHTML = '';
+        dom.entriesContainer.appendChild(table);
+      }
+
+      function getFilteredEntries() {
+        const from = dom.filterFrom.value ? new Date(dom.filterFrom.value + 'T00:00:00').getTime() : -Infinity;
+        const to = dom.filterTo.value ? new Date(dom.filterTo.value + 'T23:59:59').getTime() : Infinity;
+        const q = sanitizeText(dom.filterTicket.value, 200).toLowerCase();
+        return state.entries.filter(entry => {
+          if (entry.startTs < from || entry.startTs > to) return false;
+          if (!q) return true;
+          const hay = `${entry.ticket} ${entry.task} ${entry.project || ''} ${entry.notes || ''}`.toLowerCase();
+          return hay.includes(q);
+        });
+      }
+
+      function getGroupKey(entry, mode) {
+        switch (mode) {
+          case 'task': return entry.task || 'Ohne Aufgabe';
+          case 'project': return entry.project || 'Kein Projekt';
+          case 'day': return formatDateOnly(entry.startTs);
+          default: return entry.ticket || 'Ohne Ticket';
+        }
+      }
+
+      function openEditDialog(id) {
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        dom.editId.value = entry.id;
+        dom.editTicket.value = entry.ticket || '';
+        dom.editTicketPreset.value = '';
+        dom.editTask.value = entry.task || '';
+        dom.editProject.value = entry.project || '';
+        dom.editDate.value = formatDateInput(new Date(entry.startTs));
+        dom.editStart.value = formatTimeInput(entry.startTs);
+        dom.editEnd.value = formatTimeInput(entry.endTs);
+        dom.editPause.value = String(entry.pauseMinutes || 0);
+        dom.editNotes.value = entry.notes || '';
+        dom.editDialog.showModal();
+      }
+
+      function saveEditEntry() {
+        const id = dom.editId.value;
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        const ticket = sanitizeText(dom.editTicket.value, 60);
+        const task = sanitizeText(dom.editTask.value, 120);
+        const project = sanitizeText(dom.editProject.value, 120);
+        const notes = sanitizeText(dom.editNotes.value, 2000);
+        const date = dom.editDate.value;
+        const start = dom.editStart.value;
+        const end = dom.editEnd.value;
+        const pauseMinutes = clampNumber(dom.editPause.value, 0, 24 * 60);
+
+        if (!ticket || !date || !start || !end) {
+          alert('Bitte alle Pflichtfelder ausfüllen.');
+          return;
+        }
+
+        rememberTicket(ticket);
+        const startTs = localDateTimeToTs(date, start);
+        const endTs = localDateTimeToTs(date, end);
+        if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) {
+          alert('Ungültige Start-/Endzeit.');
+          return;
+        }
+        if ((endTs - startTs) / 60000 <= pauseMinutes) {
+          alert('Die Pause ist größer oder gleich der gesamten Zeitspanne.');
+          return;
+        }
+        entry.ticket = ticket;
+        entry.task = task;
+        entry.project = project;
+        entry.notes = notes;
+        entry.startTs = startTs;
+        entry.endTs = endTs;
+        entry.pauseMinutes = pauseMinutes;
+        saveState();
+        dom.editDialog.close();
+        renderAll();
+      }
+
+      function duplicateEntry(id) {
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        state.entries.push({ ...structuredCloneSafe(entry), id: cryptoRandomId(), createdAt: Date.now() });
+        saveState();
+        renderAll();
+      }
+
+      function deleteEntry(id) {
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        const label = `${entry.ticket || 'ohne Ticket'} / ${entry.task || 'ohne Aufgabe'}`;
+        if (!confirm(`Eintrag ${label} wirklich löschen?`)) return;
+        state.entries = state.entries.filter(e => e.id !== id);
+        saveState();
+        renderAll();
+      }
+
+      function exportJson() {
+        const data = {
+          exportedAt: new Date().toISOString(),
+          version: 1,
+          app: 'Lokaler Zeit-Tracker',
+          payload: state
+        };
+        downloadBlob(JSON.stringify(data, null, 2), 'application/json', `zeit-tracker-export-${fileDateStamp()}.json`);
+      }
+
+      function exportCsv() {
+        const headers = ['Datum','Start','Ende','Ticket','Aufgabe','Projekt','PauseMinuten','NettoMinuten','Notizen','Quelle'];
+        const rows = state.entries.slice().sort((a, b) => a.startTs - b.startTs).map(e => [
+          formatDateOnly(e.startTs),
+          formatTimeOnly(e.startTs),
+          formatTimeOnly(e.endTs),
+          e.ticket,
+          e.task,
+          e.project || '',
+          String(e.pauseMinutes || 0),
+          String(Math.round(getNetDurationMs(e) / 60000)),
+          e.notes || '',
+          e.source || ''
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(csvEscape).join(';')).join('\r\n');
+        downloadBlob(csv, 'text/csv;charset=utf-8', `zeit-tracker-export-${fileDateStamp()}.csv`);
+      }
+
+      async function importJson(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const payload = parsed && parsed.payload ? parsed.payload : parsed;
+          if (!payload || !Array.isArray(payload.entries)) throw new Error('Ungültiges Format');
+          const importedEntries = payload.entries.filter(isValidEntry).map(normalizeEntry);
+          const importedActive = payload.activeTimer && isValidActiveTimer(payload.activeTimer) ? payload.activeTimer : null;
+          const overwrite = confirm(`Importierte Einträge: ${importedEntries.length}. Vorhandene Daten ersetzen?\nOK = ersetzen, Abbrechen = anhängen.`);
+          if (overwrite) {
+            state.entries = importedEntries;
+            state.activeTimer = importedActive;
+          } else {
+            state.entries.push(...importedEntries);
+          }
+          rememberTicketsFromEntries(state.entries);
+          saveState();
+          renderAll();
+          alert('Import abgeschlossen.');
+        } catch (err) {
+          console.error(err);
+          alert('Import fehlgeschlagen. Bitte gültige JSON-Datei verwenden.');
+        } finally {
+          event.target.value = '';
+        }
+      }
+
+      function clearAllData() {
+        const ok = confirm('Wirklich alle lokal gespeicherten Daten löschen? Dieser Schritt kann nicht rückgängig gemacht werden.');
+        if (!ok) return;
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(CUSTOM_TICKETS_KEY);
+        customTickets = [];
+        populateTicketPresets();
+        populateTicketSuggestions();
+        state.entries = [];
+        state.activeTimer = null;
+        const today = formatDateInput(new Date());
+        dom.dayFocus.value = today;
+        applyFocusedDay(today);
+        renderAll();
+      }
+
+      function isValidEntry(e) {
+        return e && typeof e === 'object' && typeof e.ticket === 'string' && typeof e.task === 'string' &&
+          Number.isFinite(Number(e.startTs)) && Number.isFinite(Number(e.endTs));
+      }
+
+      function normalizeEntry(e) {
+        return {
+          id: typeof e.id === 'string' ? e.id : cryptoRandomId(),
+          ticket: sanitizeText(e.ticket, 60),
+          task: sanitizeText(e.task, 120),
+          project: sanitizeText(e.project || '', 120),
+          notes: sanitizeText(e.notes || '', 2000),
+          startTs: Number(e.startTs),
+          endTs: Number(e.endTs),
+          pauseMinutes: clampNumber(e.pauseMinutes || 0, 0, 24 * 60),
+          createdAt: Number.isFinite(Number(e.createdAt)) ? Number(e.createdAt) : Date.now(),
+          source: e.source === 'manual' ? 'manual' : 'timer'
+        };
+      }
+
+      function isValidActiveTimer(e) {
+        return e && typeof e === 'object' && typeof e.ticket === 'string' && typeof e.task === 'string' &&
+          Number.isFinite(Number(e.startTs));
+      }
+
+      function sanitizeText(value, maxLen) {
+        return String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, maxLen);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function clampNumber(value, min, max) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return min;
+        return Math.min(max, Math.max(min, Math.round(n)));
+      }
+
+      function getNetDurationMs(entry) {
+        return Math.max(0, (entry.endTs - entry.startTs) - ((entry.pauseMinutes || 0) * 60000));
+      }
+
+      function localDateTimeToTs(date, time) {
+        return new Date(`${date}T${time}:00`).getTime();
+      }
+
+      function formatDuration(ms) {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+
+      function formatDateTime(ts) {
+        return new Date(ts).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+      }
+
+      function formatDateOnly(ts) {
+        return new Date(ts).toLocaleDateString('de-DE');
+      }
+
+      function formatDateDisplay(dateStr) {
+        if (!dateStr) return '';
+        return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE');
+      }
+
+      function formatTimeOnly(ts) {
+        return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function formatTimeInput(ts) {
+        const d = new Date(ts);
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+
+      function formatDateInput(date) {
+        const d = new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+
+      function truncate(str, max) {
+        return str.length > max ? str.slice(0, max - 1) + '…' : str;
+      }
+
+      function csvEscape(value) {
+        const text = String(value ?? '');
+        return '"' + text.replaceAll('"', '""') + '"';
+      }
+
+      function downloadBlob(content, type, filename) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+      }
+
+      function fileDateStamp() {
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+
+      function structuredCloneSafe(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function cryptoRandomId() {
+        try {
+          const bytes = new Uint8Array(10);
+          crypto.getRandomValues(bytes);
+          return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch {
+          return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
