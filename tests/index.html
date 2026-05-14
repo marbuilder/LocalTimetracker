@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lokaler Zeit-Tracker — Test-Übersicht</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; line-height: 1.5; background: #f4f6f8; color: #0f172a; max-width: 920px; }
+    h1 { margin: 0 0 16px; }
+    p { color: #4a5572; }
+    ul { padding: 0; list-style: none; }
+    li { padding: 10px 14px; margin: 6px 0; background: #fff; border: 1px solid #d7dce2; border-radius: 8px; }
+    li a { font-weight: 600; color: #2456b8; text-decoration: none; }
+    li a:hover { text-decoration: underline; }
+    li .desc { display: block; color: #4a5572; font-size: 14px; margin-top: 4px; }
+    code { background: #eef2f6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .legend { margin-top: 24px; padding: 12px 14px; background: #fff; border: 1px solid #d7dce2; border-radius: 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Test-Übersicht — Lokaler Zeit-Tracker</h1>
+  <p>Standalone-HTML-Tests ohne externe Abhängigkeiten. Jeder Test öffnet <code>../index.html</code> in einem Iframe, treibt die App über DOM-Events und meldet PASS/FAIL.</p>
+
+  <h2>Source-Level Tests (statisches Grep)</h2>
+  <ul>
+    <li>
+      <a href="s01-persistence-regression.html">S01 — Persistence Regression</a>
+      <span class="desc">Normalisierungs-Vertrag für gespeicherten Zustand und Ticket-Vorschläge.</span>
+    </li>
+    <li>
+      <a href="s02-current-day-backdated-timer.html">S02 — Current Day & Backdated Timer</a>
+      <span class="desc">Pflicht zur korrekten Tag-Initialisierung und Backdating-Validierung.</span>
+    </li>
+  </ul>
+
+  <h2>Verhaltens-Tests (Iframe + DOM-Events)</h2>
+  <ul>
+    <li>
+      <a href="t00-render-after-manual-entry.html">T00 — Render nach manuellem Eintrag</a>
+      <span class="desc">Probe-Test: nach <code>addManualBtn</code> erscheinen Einträge, Summary und Chart-Subtitle. Fängt globale Exceptions.</span>
+    </li>
+    <li>
+      <a href="t01-manual-entry-validation.html">T01 — Manueller Eintrag: Validierung</a>
+      <span class="desc">Inline-Fehler statt <code>alert()</code> für Pflichtfelder, Ende ≤ Start, Pause ≥ Spanne.</span>
+    </li>
+    <li>
+      <a href="t02-timer-start-stop.html">T02 — Timer Start / Stop</a>
+      <span class="desc">Sticky-Bar zeigt aktiven Timer; Stop legt Eintrag an und zeigt Toast.</span>
+    </li>
+    <li>
+      <a href="t03-timer-replace-and-future-end.html">T03 — Timer wechseln & Zukunfts-Endzeit</a>
+      <span class="desc">askConfirm-Dialog beim Wechseln und akzeptierte Zukunfts-Endzeit beim Stop.</span>
+    </li>
+    <li>
+      <a href="t04-filter-range-chips.html">T04 — Filter & Range-Chips</a>
+      <span class="desc">Drei Einträge an verschiedenen Tagen; Range-Chips zeigen die korrekte Auswahl.</span>
+    </li>
+    <li>
+      <a href="t05-group-by.html">T05 — Gruppierung Ticket / Tag</a>
+      <span class="desc">Summary-Tabelle aggregiert korrekt nach Ticket bzw. Tag.</span>
+    </li>
+    <li>
+      <a href="t06-chart-tooltip.html">T06 — Chart Render & Tooltip</a>
+      <span class="desc">Canvas hat Pixel-Inhalt nach Render; Hover zeigt Tooltip mit Gruppe und Dauer.</span>
+    </li>
+    <li>
+      <a href="t07-edit-and-delete-with-undo.html">T07 — Bearbeiten, Löschen, Undo</a>
+      <span class="desc">Eintrag editieren, löschen und über Toast wiederherstellen.</span>
+    </li>
+  </ul>
+
+  <div class="legend">
+    <strong>Hinweis:</strong> Tests teilen sich <code>localStorage</code> mit der App (gleiche Origin). Jeder Test räumt vorab auf
+    (<code>local-time-tracker-v1*</code>-Schlüssel und Snapshots), damit Reihenfolge keine Rolle spielt.
+  </div>
+</body>
+</html>

@@ -1,0 +1,2453 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+  <title>Lokaler Zeit-Tracker</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #141b2d;
+      --panel-2: #0f1525;
+      --text: #ebeff8;
+      --muted: #9aa5bf;
+      --accent: #6aa9ff;
+      --good: #30c48d;
+      --warn: #ffb020;
+      --bad: #ff6b6b;
+      --border: #24304a;
+      --th-bg: #10182b;
+      --th-text: #c9d4ec;
+      --dialog-bg: #11192b;
+      --btn-bg: #1b2741;
+      --btn-bg-hover: #223050;
+      --row-stripe: rgba(255,255,255,.01);
+      --row-hover: rgba(255,255,255,.04);
+      --panel-shadow: rgba(0,0,0,.25);
+      --body-gradient: linear-gradient(180deg, var(--bg), #0f172a 35%, #0c1322 100%);
+      --current-bg: linear-gradient(180deg, rgba(36,86,184,.22), rgba(36,86,184,.10));
+      --current-border: rgba(106,169,255,.35);
+      --chart-fill: rgba(106,169,255,.82);
+      --chart-grid: rgba(255,255,255,.08);
+      --chart-c1: rgba(106,169,255,.88);
+      --chart-c2: rgba(48,196,141,.88);
+      --chart-c3: rgba(255,176,32,.88);
+      --chart-c4: rgba(255,107,107,.88);
+      --chart-c5: rgba(180,133,255,.88);
+      --chart-c6: rgba(76,209,255,.88);
+      --chart-c7: rgba(255,140,190,.88);
+      --chart-c8: rgba(163,230,53,.88);
+    }
+    body[data-theme="light"] {
+      --bg: #f3f5fa;
+      --panel: #ffffff;
+      --panel-2: #f0f2f8;
+      --text: #0f172a;
+      --muted: #4a5572;
+      --accent: #2456b8;
+      --border: #d6dbe6;
+      --th-bg: #e8ecf5;
+      --th-text: #324070;
+      --dialog-bg: #ffffff;
+      --btn-bg: #e6eaf3;
+      --btn-bg-hover: #d9deeb;
+      --row-stripe: rgba(0,0,0,.02);
+      --row-hover: rgba(36,86,184,.06);
+      --panel-shadow: rgba(15,23,42,.08);
+      --body-gradient: linear-gradient(180deg, #f5f7fb, #eef1f8 35%, #e7ebf4 100%);
+      --current-bg: linear-gradient(180deg, rgba(36,86,184,.10), rgba(36,86,184,.04));
+      --current-border: rgba(36,86,184,.30);
+      --chart-grid: rgba(0,0,0,.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--body-gradient);
+      color: var(--text);
+    }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+    .container { max-width: 1380px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .app-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .app-head h1 { flex: 1; }
+    #themeToggleBtn {
+      width: auto; min-height: 36px; padding: 6px 12px; font-size: 18px; line-height: 1;
+      border-radius: 999px; background: var(--btn-bg);
+    }
+    h1, h2, h3 { margin: 0 0 12px; }
+    p { color: var(--muted); }
+    .grid { display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px var(--panel-shadow);
+    }
+    .panel.full { grid-column: 1 / -1; }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+    .field { grid-column: span 12; }
+    .field.s3 { grid-column: span 3; }
+    .field.s6 { grid-column: span 6; }
+    .field.s12 { grid-column: span 12; }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select, button, textarea {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    button {
+      cursor: pointer;
+      background: var(--btn-bg);
+      transition: transform .08s ease, opacity .15s ease, background .15s ease;
+    }
+    button:hover { background: var(--btn-bg-hover); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: #2456b8; color: #fff; }
+    button.good { background: #136c4b; color: #fff; }
+    button.warn { background: #8f6111; color: #fff; }
+    button.bad { background: #7f2c2c; color: #fff; }
+    body[data-theme="light"] button.primary { background: #2456b8; color: #fff; }
+    body[data-theme="light"] button.primary:hover { background: #1d4699; }
+    body[data-theme="light"] button.good { background: #15875a; color: #fff; }
+    body[data-theme="light"] button.good:hover { background: #117049; }
+    body[data-theme="light"] button.warn { background: #d18a2e; color: #fff; }
+    body[data-theme="light"] button.warn:hover { background: #b67422; }
+    body[data-theme="light"] button.bad { background: #cf4040; color: #fff; }
+    body[data-theme="light"] button.bad:hover { background: #b03333; }
+    button.ghost { background: transparent; border-color: var(--border); }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+    .day-nav {
+      display: grid;
+      grid-template-columns: auto auto minmax(180px, 220px) auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+    .panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .panel-head h2 { margin: 0; }
+    .view-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+    .view-toggle button {
+      width: auto; min-height: 32px; padding: 4px 14px;
+      border-radius: 0; border: none; background: transparent; color: var(--muted);
+      font-size: 13px;
+    }
+    .view-toggle button.active { background: var(--accent); color: #fff; }
+    .week-pivot th, .week-pivot td { white-space: nowrap; }
+    .week-pivot td.tnum, .week-pivot th.tnum { text-align: right; }
+    .week-pivot td.col-ticket, .week-pivot th.col-ticket { text-align: left; min-width: 140px; }
+    .week-pivot td.weekend { background: var(--row-stripe); }
+    .week-pivot tfoot td { background: var(--th-bg); color: var(--th-text); }
+    .range-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin: 0 0 14px;
+    }
+    .range-chips button {
+      width: auto; min-height: 32px; padding: 4px 12px;
+      font-size: 13px; border-radius: 999px;
+      background: var(--btn-bg); border-color: var(--border);
+    }
+    .range-chips button.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+    tfoot td {
+      font-weight: 700; background: var(--th-bg); color: var(--th-text);
+      border-top: 2px solid var(--border);
+    }
+    .shortcut-help {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--muted);
+      margin-left: 12px;
+    }
+    .shortcut-help summary { cursor: pointer; list-style: none; padding: 4px 8px; border-radius: 8px; }
+    .shortcut-help summary::-webkit-details-marker { display: none; }
+    .shortcut-help[open] summary { background: var(--btn-bg); }
+    .shortcut-help kbd {
+      display: inline-block; padding: 1px 6px; border-radius: 4px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px; color: var(--text);
+    }
+    .shortcut-help .shortcut-list {
+      position: absolute; margin-top: 6px;
+      padding: 10px 12px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+      display: grid; grid-template-columns: auto 1fr; gap: 6px 12px;
+      font-size: 13px; z-index: 10; white-space: nowrap;
+    }
+    .ticket-row {
+      display: grid; gap: 8px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 200px);
+      align-items: stretch;
+    }
+    .ticket-row select { font-size: 14px; }
+    .ticket-help { margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .stat { padding: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; }
+    .stat .value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat .label { color: var(--muted); font-size: 13px; }
+    .current {
+      display: flex; justify-content: space-between; gap: 12px; align-items: center;
+      padding: 12px 16px; background: var(--current-bg);
+      border: 1px solid var(--current-border); border-radius: 12px;
+      backdrop-filter: saturate(140%) blur(6px);
+      -webkit-backdrop-filter: saturate(140%) blur(6px);
+    }
+    .current.sticky-bar {
+      position: sticky; top: 8px; z-index: 5;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    }
+    .current .live-duration {
+      font-size: 28px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5px;
+    }
+    .pill {
+      display: inline-flex; gap: 8px; align-items: center;
+      background: rgba(48,196,141,.15); color: #b8f0d8;
+      border: 1px solid rgba(48,196,141,.35); border-radius: 999px; padding: 6px 10px; font-size: 13px;
+      font-weight: 600;
+    }
+    body[data-theme="light"] .pill {
+      background: rgba(19,108,75,.12);
+      color: #0e6a48;
+      border-color: rgba(19,108,75,.45);
+    }
+    .muted { color: var(--muted); }
+    table {
+      width: 100%; border-collapse: collapse; overflow: hidden;
+      border-radius: 12px; border: 1px solid var(--border);
+    }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--th-bg); color: var(--th-text); font-size: 13px; }
+    tr:nth-child(even) td { background: var(--row-stripe); }
+    tbody tr:hover td { background: var(--row-hover); }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions button { width: auto; min-height: 34px; padding: 6px 10px; font-size: 13px; }
+    .summary-table td:first-child, .summary-table th:first-child { width: 18%; }
+    .footer-note { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    dialog {
+      width: min(780px, calc(100vw - 24px)); border: 1px solid var(--border);
+      border-radius: 14px; background: var(--dialog-bg); color: var(--text); padding: 0;
+    }
+    dialog::backdrop { background: rgba(0,0,0,.55); }
+    .dialog-head, .dialog-body, .dialog-foot { padding: 16px; }
+    .dialog-head { border-bottom: 1px solid var(--border); }
+    .dialog-foot { border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+    .empty {
+      padding: 18px; border: 1px dashed var(--border); border-radius: 12px;
+      color: var(--muted); background: var(--panel-2);
+    }
+    .compact-menu {
+      width: 100%; border: 1px solid var(--border); border-radius: 12px;
+      background: var(--panel-2); overflow: hidden; margin-bottom: 14px;
+    }
+    .compact-menu summary {
+      cursor: pointer; list-style: none; padding: 12px; user-select: none;
+      color: var(--text); font-weight: 600;
+    }
+    .compact-menu summary::-webkit-details-marker { display: none; }
+    .compact-menu summary::after { content: "▾"; float: right; color: var(--muted); }
+    .compact-menu[open] summary::after { content: "▴"; }
+    .compact-inner { padding: 0 12px 12px; border-top: 1px solid var(--border); }
+    .compact-hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+    .snapshot-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; }
+    .snapshot-list .empty-hint { color: var(--muted); font-size: 13px; padding: 4px 0; }
+    .snapshot-item {
+      display: flex; gap: 12px; align-items: center; justify-content: space-between;
+      padding: 8px 10px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 10px; font-size: 13px;
+    }
+    .snapshot-item .snap-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .snapshot-item .snap-title { font-weight: 600; }
+    .snapshot-item .snap-sub { color: var(--muted); font-size: 12px; }
+    .snapshot-item .snap-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .snapshot-item .snap-actions button { width: auto; min-height: 30px; padding: 4px 10px; font-size: 13px; }
+    .preset-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .preset-list .empty-hint { color: var(--muted); font-size: 13px; padding: 4px 0; }
+    .preset-item {
+      display: inline-flex; gap: 4px; align-items: center;
+      padding: 4px 6px 4px 10px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 999px; font-size: 13px;
+    }
+    .preset-item button {
+      width: auto; min-height: 24px; padding: 0 6px;
+      background: transparent; border: none; color: var(--muted);
+      border-radius: 999px;
+    }
+    .preset-item button:hover { color: var(--bad); background: rgba(255,107,107,.12); }
+    #toastRoot {
+      position: fixed; bottom: 16px; right: 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 100; max-width: 380px; pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      padding: 10px 14px; border-radius: 10px;
+      background: var(--panel); border: 1px solid var(--border); color: var(--text);
+      box-shadow: 0 8px 24px rgba(0,0,0,.3);
+      display: flex; gap: 10px; align-items: center;
+      font-size: 14px; opacity: 0; transform: translateY(8px);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.good { border-color: rgba(48,196,141,.5); }
+    .toast.bad  { border-color: rgba(255,107,107,.5); }
+    .toast.warn { border-color: rgba(255,176,32,.5); }
+    .toast .toast-msg { flex: 1; }
+    .toast button {
+      width: auto; min-height: 28px; padding: 4px 10px; font-size: 13px;
+      border-radius: 8px; background: var(--btn-bg);
+    }
+    .field-error {
+      margin-top: 4px; font-size: 12px; color: var(--bad);
+    }
+    input[aria-invalid="true"],
+    textarea[aria-invalid="true"],
+    select[aria-invalid="true"] {
+      border-color: var(--bad);
+    }
+    .confirm-dialog .dialog-body { padding-top: 14px; }
+    .confirm-dialog p { margin: 0; color: var(--text); }
+    .chart-wrap {
+      margin-top: 14px; padding: 12px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 12px;
+    }
+    .chart-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+    .chart-title { font-size: 14px; font-weight: 600; }
+    .chart-subtitle { font-size: 12px; color: var(--muted); }
+    .chart-canvas-wrap { position: relative; }
+    #summaryChart {
+      display: block; width: 100%; height: 320px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border-radius: 10px;
+    }
+    #chartTooltip {
+      position: absolute; pointer-events: none;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px; font-size: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.35);
+      transform: translate(-50%, calc(-100% - 10px));
+      opacity: 0; transition: opacity .12s ease;
+      max-width: 240px; white-space: normal;
+    }
+    #chartTooltip.show { opacity: 1; }
+    #chartTooltip .ct-title { font-weight: 700; margin-bottom: 4px; }
+    #chartTooltip .ct-row { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+    #chartTooltip .ct-row span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
+    @media (max-width: 1050px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .day-nav { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .row { grid-template-columns: 1fr; }
+      .field, .field.s3, .field.s6, .field.s12 { grid-column: span 1; }
+      .stats { grid-template-columns: 1fr; }
+      .day-nav { grid-template-columns: 1fr; }
+      .ticket-row { grid-template-columns: 1fr; }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr { border-bottom: 1px solid var(--border); }
+      td { border: none; padding: 8px 10px; }
+      td::before { content: attr(data-label) ": "; color: var(--muted); font-weight: 600; }
+      .week-pivot, .week-pivot thead, .week-pivot tbody, .week-pivot tfoot,
+      .week-pivot tr, .week-pivot th, .week-pivot td { display: revert; }
+      .week-pivot thead { display: table-header-group; }
+      .week-pivot td::before { content: none; }
+      #summaryChart { height: 280px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel full">
+      <div class="app-head">
+        <div>
+          <h1>Lokaler Zeit-Tracker</h1>
+          <p>Vollständig lokal im Browser, ohne externe Bibliotheken. Daten werden in <code>localStorage</code> gespeichert und können zusätzlich als JSON exportiert/importiert werden.</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <details class="shortcut-help">
+            <summary aria-label="Tastenkürzel anzeigen" title="Tastenkürzel">⌨️</summary>
+            <div class="shortcut-list">
+              <kbd>Ctrl/⌘ + Enter</kbd><span>Timer starten</span>
+              <kbd>Esc</kbd><span>Timer stoppen (mit Rückfrage)</span>
+              <kbd>Alt + ←</kbd><span>Vortag</span>
+              <kbd>Alt + →</kbd><span>Nächster Tag</span>
+              <kbd>Alt + T</kbd><span>Heute</span>
+            </div>
+          </details>
+          <button id="themeToggleBtn" type="button" class="ghost" aria-label="Farbschema wechseln" title="Hell/Dunkel">🌙</button>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div id="currentTimer" class="current sticky-bar" aria-live="polite"></div>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Timer starten</h2>
+        <div class="row">
+          <div class="field s12">
+            <label for="ticketNumber">Ticket-Nr. *</label>
+            <div class="ticket-row">
+              <input id="ticketNumber" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" enterkeyhint="done" list="ticketSuggestions">
+              <select id="ticketNumberPreset" aria-label="Gespeichertes Ticket auswählen">
+                <option value="">Vorauswahl…</option>
+              </select>
+            </div>
+            <div class="ticket-help">Frei eingeben oder aus der Vorauswahl-Liste wählen. Autocomplete ist zusätzlich aktiv.</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s6">
+            <label for="timerStartTime">Startzeit (optional, heute)</label>
+            <input id="timerStartTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerStartHint">
+            <div id="timerStartHint" class="ticket-help">Leer = jetzt beim Start.</div>
+          </div>
+          <div class="field s6">
+            <label for="timerEndTime">Endzeit (optional, heute)</label>
+            <input id="timerEndTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerEndHint">
+            <div id="timerEndHint" class="ticket-help">Leer = jetzt beim Stop. Muss nach der Startzeit liegen.</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s12">
+            <label for="taskNotes">Notizen</label>
+            <textarea id="taskNotes" placeholder="Optional"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="startBtn" class="good">Start</button>
+          <button id="stopBtn" class="warn">Stop</button>
+          <button id="resetFormBtn" class="ghost">Felder leeren</button>
+        </div>
+        <div class="footer-note">Sicherheitsaspekt: keine externen Requests, keine Drittanbieter-Skripte, keine Ausführung von Benutzereingaben als HTML.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Manuellen Eintrag anlegen</h2>
+        <div class="row">
+          <div class="field s12">
+            <label for="manualTicket">Ticket-Nr. *</label>
+            <div class="ticket-row">
+              <input id="manualTicket" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" enterkeyhint="done" list="ticketSuggestions">
+              <select id="manualTicketPreset" aria-label="Gespeichertes Ticket auswählen">
+                <option value="">Vorauswahl…</option>
+              </select>
+            </div>
+            <div class="ticket-help">Frei eingeben oder aus der Vorauswahl-Liste wählen. Autocomplete ist zusätzlich aktiv.</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s3">
+            <label for="manualDate">Datum</label>
+            <input id="manualDate" type="date">
+          </div>
+          <div class="field s3">
+            <label for="manualStart">Start</label>
+            <input id="manualStart" type="time" step="60">
+          </div>
+          <div class="field s3">
+            <label for="manualEnd">Ende</label>
+            <input id="manualEnd" type="time" step="60">
+          </div>
+          <div class="field s3">
+            <label for="manualPause">Pause (Min.)</label>
+            <input id="manualPause" type="number" min="0" step="1" value="0" inputmode="numeric">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field s12">
+            <label for="manualNotes">Notizen</label>
+            <textarea id="manualNotes" placeholder="Optional"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="addManualBtn" class="primary">Manuellen Eintrag speichern</button>
+        </div>
+      </section>
+
+      <section class="panel full">
+        <div class="panel-head">
+          <h2>Filter & Auswertung</h2>
+          <div class="view-toggle" role="group" aria-label="Ansichts-Modus">
+            <button type="button" data-view="list" class="active">Liste</button>
+            <button type="button" data-view="week">Woche</button>
+          </div>
+        </div>
+
+        <div class="range-chips" role="group" aria-label="Schnellauswahl Zeitraum">
+          <button type="button" data-range="today">Heute</button>
+          <button type="button" data-range="yesterday">Gestern</button>
+          <button type="button" data-range="thisWeek">Diese Woche</button>
+          <button type="button" data-range="last7">Letzte 7 Tage</button>
+          <button type="button" data-range="thisMonth">Dieser Monat</button>
+          <button type="button" data-range="lastMonth">Letzter Monat</button>
+        </div>
+
+        <div class="day-nav">
+          <button id="prevDayBtn" type="button" class="ghost">← Vortag</button>
+          <button id="todayBtn" type="button" class="ghost">Heute</button>
+          <input id="dayFocus" type="date">
+          <button id="nextDayBtn" type="button" class="ghost">Nächster Tag →</button>
+        </div>
+
+        <details class="compact-menu" data-ui-key="filter">
+          <summary>Weitere Filter ein-/ausklappen</summary>
+          <div class="compact-inner">
+            <p class="compact-hint">Zeitraum, Ticket-Filter und Gruppierung.</p>
+
+            <div class="row">
+              <div class="field s3">
+                <label for="filterFrom">Von</label>
+                <input id="filterFrom" type="date">
+              </div>
+              <div class="field s3">
+                <label for="filterTo">Bis</label>
+                <input id="filterTo" type="date">
+              </div>
+              <div class="field s3">
+                <label for="filterTicket">Ticket / Aufgabe / Projekt</label>
+                <input id="filterTicket" placeholder="Suche..." autocomplete="off">
+              </div>
+              <div class="field s3">
+                <label for="groupBy">Gruppierung</label>
+                <select id="groupBy">
+                  <option value="ticket">Nach Ticket</option>
+                  <option value="day">Nach Tag</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <button id="applyDayBtn" class="primary" type="button">Tag anzeigen</button>
+              <button id="clearFiltersBtn" class="ghost">Filter zurücksetzen</button>
+            </div>
+          </div>
+        </details>
+
+        <div id="summaryContainer"></div>
+
+        <div class="chart-wrap">
+          <div class="chart-head">
+            <div class="chart-title">Diagramm</div>
+            <div id="chartSubtitle" class="chart-subtitle">Keine Daten</div>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="summaryChart" width="1200" height="320" aria-label="Auswertungsdiagramm"></canvas>
+            <div id="chartTooltip" role="tooltip"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel full">
+        <h2>Daten</h2>
+        <details class="compact-menu" data-ui-key="dataIO">
+          <summary>Import / Export & Datenverwaltung</summary>
+          <div class="compact-inner">
+            <p class="compact-hint">Einträge sichern, einspielen oder vollständig entfernen.</p>
+            <div class="toolbar">
+              <button id="exportJsonBtn">Einträge exportieren (JSON)</button>
+              <button id="exportCsvBtn">Einträge exportieren (CSV)</button>
+              <button id="importBtn">Einträge importieren (JSON)</button>
+              <input id="importFile" type="file" accept="application/json,.json" hidden>
+              <button id="clearAllBtn" class="bad">Alle Einträge löschen</button>
+            </div>
+          </div>
+        </details>
+        <details class="compact-menu" data-ui-key="snapshots">
+          <summary>Snapshots (Backups)</summary>
+          <div class="compact-inner">
+            <p class="compact-hint">Lokale Sicherungen des aktuellen Stands. Maximal 5 manuelle Snapshots werden behalten, ältere fallen automatisch raus.</p>
+            <div class="toolbar">
+              <button id="createSnapshotBtn" type="button" class="primary">Snapshot anlegen</button>
+            </div>
+            <div id="snapshotListContainer" class="snapshot-list"></div>
+          </div>
+        </details>
+
+        <details class="compact-menu" data-ui-key="presets">
+          <summary>Ticket-Presets verwalten</summary>
+          <div class="compact-inner">
+            <p class="compact-hint">Tickets, die per Autocomplete in den Eingabefeldern vorgeschlagen werden. Tickets aus gespeicherten Einträgen werden automatisch ergänzt.</p>
+            <div class="row">
+              <div class="field s6">
+                <label for="presetTicketInput">Neues Preset-Ticket</label>
+                <input id="presetTicketInput" maxlength="60" placeholder="Ticket-Nr." autocomplete="off" enterkeyhint="done">
+              </div>
+              <div class="field s6">
+                <label>&nbsp;</label>
+                <button id="addPresetTicketBtn" type="button" class="primary">Hinzufügen</button>
+              </div>
+            </div>
+            <div id="presetListContainer" class="preset-list"></div>
+            <div class="toolbar">
+              <button id="exportTicketsBtn" type="button">Tickets exportieren (JSON)</button>
+              <button id="importTicketsBtn" type="button">Tickets importieren (JSON)</button>
+              <input id="importTicketsFile" type="file" accept="application/json,.json" hidden>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section class="panel full">
+        <h2>Einträge</h2>
+        <div id="entriesContainer"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer style="margin-top:2rem;padding:1rem 1.5rem;border-top:1px solid var(--border, #e0e0e0);font-size:0.8rem;color:var(--muted, #666);text-align:center;">
+    Diese Seite wird über <a href="https://pages.github.com/" target="_blank" rel="noopener noreferrer">GitHub Pages</a> bereitgestellt und unterliegt den
+    <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">Datenschutzbestimmungen von GitHub</a>.
+    Die Zeiterfassungsdaten des LocalTimetrackers werden ausschließlich im lokalen Speicher (localStorage) Ihres Browsers gespeichert und nicht an GitHub oder andere Server übertragen.
+  </footer>
+
+  <dialog id="editDialog">
+    <div class="dialog-head"><h3>Eintrag bearbeiten</h3></div>
+    <div class="dialog-body">
+      <input id="editId" type="hidden">
+      <div class="row">
+        <div class="field s12">
+          <label for="editTicket">Ticket-Nr. *</label>
+          <input id="editTicket" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" enterkeyhint="done" list="ticketSuggestions">
+          <div class="ticket-help">Frei eingeben oder aus den gespeicherten Tickets per Autocomplete wählen.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field s3"><label for="editDate">Datum</label><input id="editDate" type="date"></div>
+        <div class="field s3"><label for="editStart">Start</label><input id="editStart" type="time" step="60"></div>
+        <div class="field s3"><label for="editEnd">Ende</label><input id="editEnd" type="time" step="60"></div>
+        <div class="field s3"><label for="editPause">Pause (Min.)</label><input id="editPause" type="number" min="0" step="1" inputmode="numeric"></div>
+      </div>
+      <div class="row">
+        <div class="field s12"><label for="editNotes">Notizen</label><textarea id="editNotes"></textarea></div>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button id="cancelEditBtn" class="ghost">Abbrechen</button>
+      <button id="saveEditBtn" class="primary">Speichern</button>
+    </div>
+  </dialog>
+
+  <datalist id="ticketSuggestions"></datalist>
+
+  <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmDialogTitle">
+    <div class="dialog-head"><h3 id="confirmDialogTitle">Bestätigung</h3></div>
+    <div class="dialog-body"><p id="confirmDialogMessage"></p></div>
+    <div class="dialog-foot" id="confirmDialogActions"></div>
+  </dialog>
+
+  <div id="toastRoot" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'local-time-tracker-v1';
+      const CUSTOM_TICKETS_KEY = STORAGE_KEY + '-ticket-suggestions';
+      const THEME_KEY = STORAGE_KEY + '-theme';
+      const UI_STATE_KEY = STORAGE_KEY + '-ui-state';
+      const SNAPSHOT_PREFIX = STORAGE_KEY + '-snapshot-';
+      const MAX_MANUAL_SNAPSHOTS = 5;
+      const TICKET_PRESETS = [];
+
+      const dom = {};
+      const qs = (id) => document.getElementById(id);
+
+      let lastChartLayout = null;
+      let lastDeletedEntry = null;
+
+      let customTickets = loadCustomTickets();
+      const state = loadState();
+      bindElements();
+      applyTheme(loadTheme());
+      restoreDetailsState();
+      populateTicketPresets();
+      populateTicketSuggestions();
+      initDefaults();
+      bindEvents();
+      updateViewToggle();
+      if (viewMode() === 'week') applyWeekOfFocusedDay();
+      renderAll();
+      renderSnapshotList();
+      scheduleMidnightRefresh();
+      setInterval(() => renderCurrentTimer(), 1000);
+
+      function loadTheme() {
+        const stored = localStorage.getItem(THEME_KEY);
+        if (stored === 'light' || stored === 'dark') return stored;
+        try {
+          return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        } catch {
+          return 'dark';
+        }
+      }
+
+      function saveTheme(theme) {
+        localStorage.setItem(THEME_KEY, theme);
+      }
+
+      function applyTheme(theme) {
+        if (theme === 'light') {
+          document.body.setAttribute('data-theme', 'light');
+        } else {
+          document.body.removeAttribute('data-theme');
+        }
+        if (dom.themeToggleBtn) {
+          dom.themeToggleBtn.textContent = theme === 'light' ? '☀️' : '🌙';
+          dom.themeToggleBtn.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+        }
+      }
+
+      function toggleTheme() {
+        const next = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        applyTheme(next);
+        saveTheme(next);
+        try {
+          renderChart(buildSummaryRows(getFilteredEntries(), dom.groupBy.value));
+        } catch {}
+      }
+
+      function loadUiState() {
+        try {
+          const raw = localStorage.getItem(UI_STATE_KEY);
+          const parsed = raw ? JSON.parse(raw) : {};
+          return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveUiState(patch) {
+        const current = loadUiState();
+        const next = { ...current, ...patch };
+        localStorage.setItem(UI_STATE_KEY, JSON.stringify(next));
+      }
+
+      function restoreDetailsState() {
+        const ui = loadUiState();
+        const details = document.querySelectorAll('details[data-ui-key]');
+        details.forEach(el => {
+          const key = el.getAttribute('data-ui-key');
+          if (key && typeof ui[key] === 'boolean') el.open = ui[key];
+          el.addEventListener('toggle', () => {
+            const k = el.getAttribute('data-ui-key');
+            if (k) saveUiState({ [k]: el.open });
+          });
+        });
+      }
+
+      function snapshotTimestamp(date = new Date()) {
+        const pad = n => String(n).padStart(2, '0');
+        return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+      }
+
+      function listSnapshots() {
+        const result = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || !key.startsWith(SNAPSHOT_PREFIX)) continue;
+          const id = key.slice(SNAPSHOT_PREFIX.length);
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          let parsed;
+          try { parsed = JSON.parse(raw); } catch { continue; }
+          result.push({
+            key, id,
+            createdAt: Number(parsed.createdAt) || 0,
+            label: typeof parsed.label === 'string' ? parsed.label : 'Snapshot',
+            entryCount: Array.isArray(parsed.entries) ? parsed.entries.length : 0,
+            byteSize: raw.length,
+            payload: parsed
+          });
+        }
+        return result.sort((a, b) => b.createdAt - a.createdAt);
+      }
+
+      function createSnapshot(label = 'Manuell') {
+        const payload = {
+          createdAt: Date.now(),
+          label,
+          entries: structuredCloneSafe(state.entries),
+          activeTimer: state.activeTimer ? structuredCloneSafe(state.activeTimer) : null,
+          customTickets: [...customTickets]
+        };
+        const key = SNAPSHOT_PREFIX + snapshotTimestamp();
+        try {
+          localStorage.setItem(key, JSON.stringify(payload));
+        } catch (err) {
+          showToast('Snapshot konnte nicht gespeichert werden (Speicher voll?).', { variant: 'bad' });
+          return null;
+        }
+        rotateSnapshots();
+        renderSnapshotList();
+        return key;
+      }
+
+      function rotateSnapshots() {
+        const manual = listSnapshots().filter(s => s.label !== 'Pre-Restore');
+        if (manual.length <= MAX_MANUAL_SNAPSHOTS) return;
+        manual.slice(MAX_MANUAL_SNAPSHOTS).forEach(s => localStorage.removeItem(s.key));
+      }
+
+      async function restoreSnapshot(snap) {
+        const ok = await askConfirm({
+          title: 'Snapshot wiederherstellen',
+          message: `Aktuellen Stand durch Snapshot vom ${formatDateTime(snap.createdAt)} ersetzen? Der jetzige Stand wird vorher automatisch als „Pre-Restore"-Snapshot gesichert.`,
+          confirmLabel: 'Wiederherstellen',
+          confirmVariant: 'primary'
+        });
+        if (!ok) return;
+        const preKey = SNAPSHOT_PREFIX + 'pre-' + snapshotTimestamp();
+        try {
+          localStorage.setItem(preKey, JSON.stringify({
+            createdAt: Date.now(),
+            label: 'Pre-Restore',
+            entries: structuredCloneSafe(state.entries),
+            activeTimer: state.activeTimer ? structuredCloneSafe(state.activeTimer) : null,
+            customTickets: [...customTickets]
+          }));
+        } catch {}
+        state.entries = Array.isArray(snap.payload.entries) ? snap.payload.entries.filter(isValidEntry).map(normalizeEntry) : [];
+        state.activeTimer = (snap.payload.activeTimer && isValidActiveTimer(snap.payload.activeTimer)) ? normalizeActiveTimer(snap.payload.activeTimer) : null;
+        if (Array.isArray(snap.payload.customTickets)) {
+          customTickets = [...new Set(snap.payload.customTickets.map(t => sanitizeText(t, 60)).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'de'));
+          saveCustomTickets();
+        }
+        saveState();
+        populateTicketPresets();
+        populateTicketSuggestions();
+        renderAll();
+        renderSnapshotList();
+        showToast('Snapshot wiederhergestellt.', { variant: 'good' });
+      }
+
+      async function deleteSnapshot(snap) {
+        const ok = await askConfirm({
+          title: 'Snapshot löschen',
+          message: `Snapshot vom ${formatDateTime(snap.createdAt)} unwiderruflich löschen?`,
+          confirmLabel: 'Löschen',
+          confirmVariant: 'bad'
+        });
+        if (!ok) return;
+        localStorage.removeItem(snap.key);
+        renderSnapshotList();
+        showToast('Snapshot gelöscht.');
+      }
+
+      function renderSnapshotList() {
+        if (!dom.snapshotListContainer) return;
+        const snaps = listSnapshots();
+        dom.snapshotListContainer.innerHTML = '';
+        if (!snaps.length) {
+          const hint = document.createElement('div');
+          hint.className = 'empty-hint';
+          hint.textContent = 'Noch keine Snapshots vorhanden.';
+          dom.snapshotListContainer.appendChild(hint);
+          return;
+        }
+        snaps.forEach(snap => {
+          const item = document.createElement('div');
+          item.className = 'snapshot-item';
+          const meta = document.createElement('div');
+          meta.className = 'snap-meta';
+          const title = document.createElement('div');
+          title.className = 'snap-title';
+          title.textContent = formatDateTime(snap.createdAt);
+          const sub = document.createElement('div');
+          sub.className = 'snap-sub';
+          const sizeKb = (snap.byteSize / 1024).toFixed(1);
+          sub.textContent = `${snap.label} · ${snap.entryCount} ${snap.entryCount === 1 ? 'Eintrag' : 'Einträge'} · ${sizeKb} KB`;
+          meta.append(title, sub);
+
+          const actions = document.createElement('div');
+          actions.className = 'snap-actions';
+          const restoreBtn = document.createElement('button');
+          restoreBtn.type = 'button';
+          restoreBtn.className = 'primary';
+          restoreBtn.textContent = 'Wiederherstellen';
+          restoreBtn.addEventListener('click', () => restoreSnapshot(snap));
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'bad';
+          deleteBtn.textContent = 'Löschen';
+          deleteBtn.addEventListener('click', () => deleteSnapshot(snap));
+          actions.append(restoreBtn, deleteBtn);
+
+          item.append(meta, actions);
+          dom.snapshotListContainer.appendChild(item);
+        });
+      }
+
+      function showToast(message, opts = {}) {
+        const { variant = 'info', timeoutMs = 3500, actionLabel, onAction } = opts;
+        if (!dom.toastRoot) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast' + (variant !== 'info' ? ' ' + variant : '');
+        toast.setAttribute('role', variant === 'bad' ? 'alert' : 'status');
+        const msg = document.createElement('div');
+        msg.className = 'toast-msg';
+        msg.textContent = message;
+        toast.appendChild(msg);
+        let timer;
+        const dismiss = () => {
+          clearTimeout(timer);
+          toast.classList.remove('show');
+          setTimeout(() => toast.remove(), 200);
+        };
+        if (actionLabel && typeof onAction === 'function') {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = actionLabel;
+          btn.addEventListener('click', () => {
+            try { onAction(); } finally { dismiss(); }
+          });
+          toast.appendChild(btn);
+        }
+        dom.toastRoot.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        timer = setTimeout(dismiss, timeoutMs);
+        return dismiss;
+      }
+
+      function askConfirm(opts) {
+        const {
+          title = 'Bestätigung',
+          message = '',
+          confirmLabel = 'OK',
+          confirmVariant = 'primary',
+          cancelLabel = 'Abbrechen',
+          extraButtons = []
+        } = opts || {};
+        return new Promise(resolve => {
+          dom.confirmDialogTitle.textContent = title;
+          dom.confirmDialogMessage.textContent = message;
+          dom.confirmDialogActions.innerHTML = '';
+
+          const buttons = [];
+          const cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.className = 'ghost';
+          cancelBtn.textContent = cancelLabel;
+          cancelBtn.addEventListener('click', () => finish(null));
+          buttons.push(cancelBtn);
+
+          extraButtons.forEach(eb => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            if (eb.variant) b.className = eb.variant;
+            b.textContent = eb.label;
+            b.addEventListener('click', () => finish(eb.value));
+            buttons.push(b);
+          });
+
+          const confirmBtn = document.createElement('button');
+          confirmBtn.type = 'button';
+          confirmBtn.className = confirmVariant;
+          confirmBtn.textContent = confirmLabel;
+          confirmBtn.addEventListener('click', () => finish(true));
+          buttons.push(confirmBtn);
+
+          buttons.forEach(b => dom.confirmDialogActions.appendChild(b));
+
+          function finish(result) {
+            dom.confirmDialog.removeEventListener('close', onClose);
+            dom.confirmDialog.close();
+            resolve(result === undefined ? null : result);
+          }
+          function onClose() {
+            dom.confirmDialog.removeEventListener('close', onClose);
+            resolve(null);
+          }
+          dom.confirmDialog.addEventListener('close', onClose);
+          dom.confirmDialog.showModal();
+          confirmBtn.focus();
+        });
+      }
+
+      function setFieldError(inputEl, message) {
+        if (!inputEl) return;
+        clearFieldError(inputEl);
+        inputEl.setAttribute('aria-invalid', 'true');
+        const errEl = document.createElement('div');
+        errEl.className = 'field-error';
+        errEl.textContent = message;
+        errEl.dataset.fieldError = '1';
+        const parent = inputEl.parentElement;
+        if (parent) parent.appendChild(errEl);
+        const clearOnce = () => {
+          clearFieldError(inputEl);
+          inputEl.removeEventListener('input', clearOnce);
+          inputEl.removeEventListener('change', clearOnce);
+        };
+        inputEl.addEventListener('input', clearOnce);
+        inputEl.addEventListener('change', clearOnce);
+      }
+
+      function clearFieldError(inputEl) {
+        if (!inputEl) return;
+        inputEl.removeAttribute('aria-invalid');
+        const parent = inputEl.parentElement;
+        if (!parent) return;
+        const existing = parent.querySelector('.field-error[data-field-error="1"]');
+        if (existing) existing.remove();
+      }
+
+      function bindElements() {
+        [
+          'ticketNumber','ticketNumberPreset','timerStartTime','timerEndTime','taskNotes','startBtn','stopBtn','resetFormBtn',
+          'manualTicket','manualTicketPreset','manualDate','manualStart','manualEnd','manualPause','manualNotes','addManualBtn',
+          'filterFrom','filterTo','filterTicket','groupBy','clearFiltersBtn','exportJsonBtn','exportCsvBtn','importBtn','importFile','clearAllBtn','ticketSuggestions',
+          'prevDayBtn','todayBtn','nextDayBtn','dayFocus','applyDayBtn',
+          'presetTicketInput','addPresetTicketBtn','presetListContainer','exportTicketsBtn','importTicketsBtn','importTicketsFile',
+          'createSnapshotBtn','snapshotListContainer',
+          'themeToggleBtn',
+          'currentTimer','stats','summaryContainer','entriesContainer','summaryChart','chartSubtitle','chartTooltip',
+          'editDialog','editId','editTicket','editDate','editStart','editEnd','editPause','editNotes','cancelEditBtn','saveEditBtn',
+          'confirmDialog','confirmDialogTitle','confirmDialogMessage','confirmDialogActions','toastRoot'
+        ].forEach(id => dom[id] = qs(id));
+      }
+
+      function normalizePersistedState(rawState, rawTickets) {
+        const normalized = {
+          entries: [],
+          activeTimer: null,
+          customTickets: []
+        };
+
+        try {
+          const parsedState = rawState ? JSON.parse(rawState) : null;
+          if (parsedState && typeof parsedState === 'object') {
+            if (Array.isArray(parsedState.entries)) {
+              normalized.entries = parsedState.entries.filter(isValidEntry).map(normalizeEntry);
+            }
+            if (parsedState.activeTimer && isValidActiveTimer(parsedState.activeTimer)) {
+              normalized.activeTimer = normalizeActiveTimer(parsedState.activeTimer);
+            }
+          }
+        } catch (err) {
+          console.warn('Persisted tracker state could not be parsed; resetting to defaults.', err);
+        }
+
+        try {
+          const parsedTickets = rawTickets ? JSON.parse(rawTickets) : [];
+          if (Array.isArray(parsedTickets)) {
+            normalized.customTickets = parsedTickets.map(ticket => sanitizeText(ticket, 60)).filter(Boolean);
+          }
+        } catch (err) {
+          console.warn('Persisted ticket suggestions could not be parsed; resetting to defaults.', err);
+        }
+
+        normalized.customTickets = [...new Set(normalized.customTickets)].sort((a, b) => a.localeCompare(b, 'de'));
+        return normalized;
+      }
+
+      function loadCustomTickets() {
+        return normalizePersistedState(localStorage.getItem(STORAGE_KEY), localStorage.getItem(CUSTOM_TICKETS_KEY)).customTickets;
+      }
+
+      function saveCustomTickets() {
+        localStorage.setItem(CUSTOM_TICKETS_KEY, JSON.stringify(customTickets));
+      }
+
+      function getAllTickets() {
+        return [...new Set([...TICKET_PRESETS, ...customTickets].map(ticket => sanitizeText(ticket, 60)).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b, 'de'));
+      }
+
+      function populateTicketPresets() {
+        const tickets = getAllTickets();
+        [dom.ticketNumberPreset, dom.manualTicketPreset].forEach(select => {
+          if (!select) return;
+          const current = select.value;
+          select.innerHTML = '';
+          const emptyOpt = document.createElement('option');
+          emptyOpt.value = '';
+          emptyOpt.textContent = 'Vorauswahl…';
+          select.appendChild(emptyOpt);
+          tickets.forEach(ticket => {
+            const opt = document.createElement('option');
+            opt.value = ticket;
+            opt.textContent = ticket;
+            select.appendChild(opt);
+          });
+          if (current && tickets.includes(current)) select.value = current;
+        });
+        renderPresetList();
+      }
+
+      function populateTicketSuggestions() {
+        const tickets = getAllTickets();
+        dom.ticketSuggestions.innerHTML = '';
+        tickets.forEach(ticket => {
+          const option = document.createElement('option');
+          option.value = ticket;
+          dom.ticketSuggestions.appendChild(option);
+        });
+      }
+
+      function rememberTicket(ticket) {
+        const clean = sanitizeText(ticket, 60);
+        if (!clean) return;
+        if (TICKET_PRESETS.includes(clean) || customTickets.includes(clean)) return;
+        customTickets.push(clean);
+        customTickets.sort((a, b) => a.localeCompare(b, 'de'));
+        saveCustomTickets();
+        populateTicketPresets();
+        populateTicketSuggestions();
+      }
+
+      function rememberTicketsFromEntries(entries) {
+        let changed = false;
+        entries.forEach(entry => {
+          const clean = sanitizeText(entry.ticket, 60);
+          if (!clean) return;
+          if (TICKET_PRESETS.includes(clean) || customTickets.includes(clean)) return;
+          customTickets.push(clean);
+          changed = true;
+        });
+        if (changed) {
+          customTickets = [...new Set(customTickets)].sort((a, b) => a.localeCompare(b, 'de'));
+          saveCustomTickets();
+          populateTicketPresets();
+          populateTicketSuggestions();
+        }
+      }
+
+      function renderPresetList() {
+        if (!dom.presetListContainer) return;
+        dom.presetListContainer.innerHTML = '';
+        if (!customTickets.length) {
+          const hint = document.createElement('div');
+          hint.className = 'empty-hint';
+          hint.textContent = 'Noch keine Tickets gespeichert.';
+          dom.presetListContainer.appendChild(hint);
+          return;
+        }
+        customTickets.forEach(ticket => {
+          const chip = document.createElement('span');
+          chip.className = 'preset-item';
+          const label = document.createElement('span');
+          label.textContent = ticket;
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.textContent = '×';
+          removeBtn.setAttribute('aria-label', `Ticket ${ticket} entfernen`);
+          removeBtn.title = 'Entfernen';
+          removeBtn.addEventListener('click', () => removePresetTicket(ticket));
+          chip.appendChild(label);
+          chip.appendChild(removeBtn);
+          dom.presetListContainer.appendChild(chip);
+        });
+      }
+
+      function addPresetTicket(rawValue) {
+        const clean = sanitizeText(rawValue, 60);
+        if (!clean) {
+          setFieldError(dom.presetTicketInput, 'Bitte einen gültigen Ticket-Namen angeben.');
+          return false;
+        }
+        if (customTickets.includes(clean)) {
+          setFieldError(dom.presetTicketInput, 'Dieses Ticket ist bereits in der Liste.');
+          return false;
+        }
+        customTickets.push(clean);
+        customTickets.sort((a, b) => a.localeCompare(b, 'de'));
+        saveCustomTickets();
+        populateTicketPresets();
+        populateTicketSuggestions();
+        showToast(`Ticket „${clean}" hinzugefügt.`, { variant: 'good' });
+        return true;
+      }
+
+      async function removePresetTicket(ticket) {
+        if (!customTickets.includes(ticket)) return;
+        const ok = await askConfirm({
+          title: 'Ticket entfernen',
+          message: `Ticket „${ticket}" aus der Vorauswahl entfernen?`,
+          confirmLabel: 'Entfernen',
+          confirmVariant: 'bad'
+        });
+        if (!ok) return;
+        customTickets = customTickets.filter(t => t !== ticket);
+        saveCustomTickets();
+        populateTicketPresets();
+        populateTicketSuggestions();
+        showToast(`Ticket „${ticket}" entfernt.`);
+      }
+
+      function exportTickets() {
+        const data = {
+          exportedAt: new Date().toISOString(),
+          version: 1,
+          app: 'Lokaler Zeit-Tracker',
+          tickets: customTickets
+        };
+        downloadBlob(JSON.stringify(data, null, 2), 'application/json', `zeit-tracker-tickets-${fileDateStamp()}.json`);
+      }
+
+      async function importTickets(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          let list = null;
+          if (Array.isArray(parsed)) {
+            list = parsed;
+          } else if (parsed && Array.isArray(parsed.tickets)) {
+            list = parsed.tickets;
+          }
+          if (!list) throw new Error('Ungültiges Format');
+          const cleaned = list
+            .filter(v => typeof v === 'string')
+            .map(v => sanitizeText(v, 60))
+            .filter(Boolean);
+          if (!cleaned.length) {
+            showToast('Keine gültigen Tickets in der Datei gefunden.', { variant: 'bad' });
+            return;
+          }
+          const mode = await askConfirm({
+            title: 'Tickets importieren',
+            message: `Gefunden: ${cleaned.length} Tickets. Vorhandene Liste ersetzen oder anhängen?`,
+            confirmLabel: 'Anhängen',
+            confirmVariant: 'primary',
+            cancelLabel: 'Abbrechen',
+            extraButtons: [{ label: 'Ersetzen', value: 'replace', variant: 'bad' }]
+          });
+          if (mode === null) return;
+          if (mode === 'replace') customTickets = [];
+          cleaned.forEach(t => {
+            if (!customTickets.includes(t)) customTickets.push(t);
+          });
+          customTickets = [...new Set(customTickets)].sort((a, b) => a.localeCompare(b, 'de'));
+          saveCustomTickets();
+          populateTicketPresets();
+          populateTicketSuggestions();
+          showToast(`${cleaned.length} Tickets importiert.`, { variant: 'good' });
+        } catch (err) {
+          console.error(err);
+          showToast('Ticket-Import fehlgeschlagen. Bitte gültige JSON-Datei verwenden.', { variant: 'bad' });
+        } finally {
+          event.target.value = '';
+        }
+      }
+
+      function initDefaults() {
+        const today = formatDateInput(new Date());
+        dom.manualDate.value = today;
+        dom.dayFocus.value = today;
+        applyFocusedDay(today);
+      }
+
+      function bindEvents() {
+        dom.startBtn.addEventListener('click', startTimer);
+        dom.stopBtn.addEventListener('click', stopTimer);
+        dom.resetFormBtn.addEventListener('click', () => {
+          dom.ticketNumber.value = '';
+          dom.ticketNumberPreset.value = '';
+          dom.taskNotes.value = '';
+          dom.timerStartTime.value = '';
+          dom.timerEndTime.value = '';
+        });
+
+        dom.themeToggleBtn.addEventListener('click', toggleTheme);
+
+        function applyPresetSelect(selectEl, inputEl) {
+          const value = sanitizeText(selectEl.value, 60);
+          if (!value) return;
+          inputEl.value = value;
+          clearFieldError(inputEl);
+          inputEl.focus();
+          if (typeof inputEl.setSelectionRange === 'function') {
+            inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+          }
+          selectEl.value = '';
+        }
+        dom.ticketNumberPreset.addEventListener('change', () => applyPresetSelect(dom.ticketNumberPreset, dom.ticketNumber));
+        dom.manualTicketPreset.addEventListener('change', () => applyPresetSelect(dom.manualTicketPreset, dom.manualTicket));
+
+        dom.addManualBtn.addEventListener('click', addManualEntry);
+        [dom.filterFrom, dom.filterTo, dom.filterTicket, dom.groupBy].forEach(el => el.addEventListener('input', renderAll));
+
+        dom.dayFocus.addEventListener('change', () => {
+          if (!dom.dayFocus.value) return;
+          if (viewMode() === 'week') applyWeekOfFocusedDay();
+          else applyFocusedDay(dom.dayFocus.value);
+          renderAll();
+        });
+        dom.applyDayBtn.addEventListener('click', () => {
+          if (!dom.dayFocus.value) return;
+          if (viewMode() === 'week') applyWeekOfFocusedDay();
+          else applyFocusedDay(dom.dayFocus.value);
+          renderAll();
+        });
+        dom.todayBtn.addEventListener('click', () => {
+          const today = formatDateInput(new Date());
+          dom.dayFocus.value = today;
+          if (viewMode() === 'week') applyWeekOfFocusedDay();
+          else applyFocusedDay(today);
+          renderAll();
+        });
+        dom.prevDayBtn.addEventListener('click', () => shiftFocusedDay(-1));
+        dom.nextDayBtn.addEventListener('click', () => shiftFocusedDay(1));
+
+        document.querySelectorAll('.range-chips button[data-range]').forEach(btn => {
+          btn.addEventListener('click', () => applyRange(btn.dataset.range));
+        });
+
+        document.querySelectorAll('.view-toggle button[data-view]').forEach(btn => {
+          btn.addEventListener('click', () => setViewMode(btn.dataset.view));
+        });
+
+        document.addEventListener('keydown', handleGlobalShortcut);
+
+        dom.clearFiltersBtn.addEventListener('click', () => {
+          const today = formatDateInput(new Date());
+          dom.filterTicket.value = '';
+          dom.groupBy.value = 'ticket';
+          dom.dayFocus.value = today;
+          if (viewMode() === 'week') applyWeekOfFocusedDay();
+          else applyFocusedDay(today);
+          renderAll();
+        });
+        dom.exportJsonBtn.addEventListener('click', exportJson);
+        dom.exportCsvBtn.addEventListener('click', exportCsv);
+        dom.importBtn.addEventListener('click', () => dom.importFile.click());
+        dom.importFile.addEventListener('change', importJson);
+        dom.clearAllBtn.addEventListener('click', clearAllData);
+
+        dom.addPresetTicketBtn.addEventListener('click', () => {
+          if (addPresetTicket(dom.presetTicketInput.value)) {
+            dom.presetTicketInput.value = '';
+            dom.presetTicketInput.focus();
+          }
+        });
+        dom.presetTicketInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            dom.addPresetTicketBtn.click();
+          }
+        });
+        dom.exportTicketsBtn.addEventListener('click', exportTickets);
+        dom.importTicketsBtn.addEventListener('click', () => dom.importTicketsFile.click());
+        dom.importTicketsFile.addEventListener('change', importTickets);
+
+        dom.createSnapshotBtn.addEventListener('click', () => {
+          const key = createSnapshot('Manuell');
+          if (key) showToast('Snapshot gespeichert.', { variant: 'good' });
+        });
+
+        dom.cancelEditBtn.addEventListener('click', () => dom.editDialog.close());
+        dom.saveEditBtn.addEventListener('click', saveEditEntry);
+        window.addEventListener('resize', () => renderChart(buildSummaryRows(getFilteredEntries(), dom.groupBy.value)));
+
+        dom.summaryChart.addEventListener('mousemove', handleChartHover);
+        dom.summaryChart.addEventListener('mouseleave', hideChartTooltip);
+        dom.summaryChart.addEventListener('click', handleChartHover);
+      }
+
+      function applyFocusedDay(dateStr) {
+        dom.filterFrom.value = dateStr;
+        dom.filterTo.value = dateStr;
+      }
+
+      function isTypingTarget(target) {
+        if (!target) return false;
+        const tag = (target.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        return target.isContentEditable === true;
+      }
+
+      function isDialogOpen() {
+        return (dom.editDialog && dom.editDialog.open) || (dom.confirmDialog && dom.confirmDialog.open);
+      }
+
+      function handleGlobalShortcut(event) {
+        // Ctrl/Cmd+Enter starts timer when typing in any timer-form field
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          const timerFields = [dom.ticketNumber, dom.taskNotes, dom.timerStartTime, dom.timerEndTime];
+          if (timerFields.includes(event.target)) {
+            event.preventDefault();
+            dom.startBtn.click();
+            return;
+          }
+        }
+        // Esc stops timer when not typing and no dialog open
+        if (event.key === 'Escape' && !isTypingTarget(event.target) && !isDialogOpen()) {
+          if (state.activeTimer) {
+            event.preventDefault();
+            askConfirm({
+              title: 'Timer stoppen',
+              message: 'Laufenden Timer jetzt stoppen?',
+              confirmLabel: 'Stoppen',
+              confirmVariant: 'warn'
+            }).then(ok => { if (ok) dom.stopBtn.click(); });
+          }
+          return;
+        }
+        if (event.altKey && !isTypingTarget(event.target) && !isDialogOpen()) {
+          if (event.key === 'ArrowLeft') { event.preventDefault(); shiftFocusedDay(-1); updateActiveRangeChip(); return; }
+          if (event.key === 'ArrowRight') { event.preventDefault(); shiftFocusedDay(1); updateActiveRangeChip(); return; }
+          if (event.key.toLowerCase() === 't') { event.preventDefault(); dom.todayBtn.click(); return; }
+        }
+      }
+
+      function shiftFocusedDay(deltaDays) {
+        const step = viewMode() === 'week' ? deltaDays * 7 : deltaDays;
+        const base = dom.dayFocus.value ? new Date(dom.dayFocus.value + 'T00:00:00') : new Date();
+        base.setDate(base.getDate() + step);
+        const next = formatDateInput(base);
+        dom.dayFocus.value = next;
+        if (viewMode() === 'week') applyWeekOfFocusedDay();
+        else applyFocusedDay(next);
+        renderAll();
+      }
+
+      function viewMode() {
+        return loadUiState().viewMode === 'week' ? 'week' : 'list';
+      }
+
+      function setViewMode(mode) {
+        saveUiState({ viewMode: mode });
+        updateViewToggle();
+        if (mode === 'week') {
+          applyWeekOfFocusedDay();
+        } else if (dom.dayFocus.value) {
+          applyFocusedDay(dom.dayFocus.value);
+        }
+        renderAll();
+      }
+
+      function updateViewToggle() {
+        const mode = viewMode();
+        document.querySelectorAll('.view-toggle button[data-view]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.view === mode);
+        });
+      }
+
+      function isoWeekRange(refDateStr) {
+        const ref = refDateStr ? new Date(refDateStr + 'T00:00:00') : new Date();
+        const day = (ref.getDay() + 6) % 7;
+        const monday = new Date(ref);
+        monday.setDate(ref.getDate() - day);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return { from: monday, to: sunday };
+      }
+
+      function applyWeekOfFocusedDay() {
+        const ref = dom.dayFocus.value || formatDateInput(new Date());
+        const range = isoWeekRange(ref);
+        dom.filterFrom.value = formatDateInput(range.from);
+        dom.filterTo.value = formatDateInput(range.to);
+        if (!dom.dayFocus.value) dom.dayFocus.value = formatDateInput(new Date());
+      }
+
+      function computeRange(rangeId, refDate = new Date()) {
+        const today = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+        const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+        // ISO week: Monday = day 1
+        const dayIdx = (today.getDay() + 6) % 7;
+        switch (rangeId) {
+          case 'today':      return { from: today, to: today };
+          case 'yesterday':  { const y = addDays(today, -1); return { from: y, to: y }; }
+          case 'thisWeek':   return { from: addDays(today, -dayIdx), to: addDays(today, 6 - dayIdx) };
+          case 'last7':      return { from: addDays(today, -6), to: today };
+          case 'thisMonth':  return { from: new Date(today.getFullYear(), today.getMonth(), 1),
+                                       to: new Date(today.getFullYear(), today.getMonth() + 1, 0) };
+          case 'lastMonth':  return { from: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+                                       to: new Date(today.getFullYear(), today.getMonth(), 0) };
+          default: return null;
+        }
+      }
+
+      function applyRange(rangeId) {
+        const range = computeRange(rangeId);
+        if (!range) return;
+        if (viewMode() === 'week') {
+          dom.dayFocus.value = formatDateInput(range.from);
+          applyWeekOfFocusedDay();
+        } else {
+          const fromStr = formatDateInput(range.from);
+          const toStr = formatDateInput(range.to);
+          dom.filterFrom.value = fromStr;
+          dom.filterTo.value = toStr;
+          dom.dayFocus.value = (fromStr === toStr) ? fromStr : '';
+        }
+        updateActiveRangeChip();
+        renderAll();
+      }
+
+      function updateActiveRangeChip() {
+        const chips = document.querySelectorAll('.range-chips button[data-range]');
+        const fromStr = dom.filterFrom.value;
+        const toStr = dom.filterTo.value;
+        chips.forEach(btn => {
+          const r = computeRange(btn.dataset.range);
+          const match = r && formatDateInput(r.from) === fromStr && formatDateInput(r.to) === toStr;
+          btn.classList.toggle('active', !!match);
+        });
+      }
+
+      function scheduleMidnightRefresh() {
+        const now = new Date();
+        const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+        const ms = next.getTime() - now.getTime();
+        setTimeout(() => {
+          const today = formatDateInput(new Date());
+          // Only auto-advance if user was viewing previous "today"
+          if (dom.dayFocus.value && dom.dayFocus.value !== today) {
+            const prevToday = formatDateInput(new Date(Date.now() - 86400000));
+            if (dom.dayFocus.value === prevToday) {
+              dom.dayFocus.value = today;
+              applyFocusedDay(today);
+              renderAll();
+            }
+          }
+          scheduleMidnightRefresh();
+        }, Math.max(1000, ms));
+      }
+
+      function loadState() {
+        const normalized = normalizePersistedState(localStorage.getItem(STORAGE_KEY), localStorage.getItem(CUSTOM_TICKETS_KEY));
+        if (normalized.entries.length || normalized.activeTimer || normalized.customTickets.length) {
+          const currentState = { entries: normalized.entries, activeTimer: normalized.activeTimer };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
+          localStorage.setItem(CUSTOM_TICKETS_KEY, JSON.stringify(normalized.customTickets));
+          return currentState;
+        }
+        return { entries: [], activeTimer: null };
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        saveCustomTickets();
+      }
+
+      async function startTimer() {
+        const ticket = sanitizeText(dom.ticketNumber.value, 60);
+        const notes = sanitizeText(dom.taskNotes.value, 2000);
+
+        if (!ticket) {
+          setFieldError(dom.ticketNumber, 'Bitte Ticket-Nr. angeben.');
+          dom.ticketNumber.focus();
+          return;
+        }
+
+        const nowTs = Date.now();
+        let startTs = nowTs;
+        if (dom.timerStartTime.value) {
+          const today = formatDateInput(new Date());
+          const requestedStartTs = localDateTimeToTs(today, dom.timerStartTime.value);
+          if (!Number.isFinite(requestedStartTs)) {
+            setFieldError(dom.timerStartTime, 'Die eingegebene Startzeit ist ungültig.');
+            return;
+          }
+          if (requestedStartTs > nowTs) {
+            setFieldError(dom.timerStartTime, 'Die Startzeit darf nicht in der Zukunft liegen.');
+            return;
+          }
+          startTs = requestedStartTs;
+        }
+
+        rememberTicket(ticket);
+
+        if (state.activeTimer) {
+          const replace = await askConfirm({
+            title: 'Timer läuft bereits',
+            message: 'Soll der laufende Timer zuerst gestoppt und der neue gestartet werden?',
+            confirmLabel: 'Wechseln',
+            confirmVariant: 'primary'
+          });
+          if (!replace) return;
+          if (!internalStopTimer(true)) return;
+        }
+
+        state.activeTimer = { id: cryptoRandomId(), ticket, notes, startTs };
+        dom.timerStartTime.value = '';
+        dom.timerEndTime.value = '';
+        saveState();
+        renderAll();
+      }
+
+      function stopTimer() {
+        if (!state.activeTimer) {
+          showToast('Aktuell läuft kein Timer.', { variant: 'warn' });
+          return;
+        }
+        if (!internalStopTimer(true)) return;
+        dom.timerStartTime.value = '';
+        dom.timerEndTime.value = '';
+        showToast('Timer gestoppt und Eintrag gespeichert.', { variant: 'good' });
+        renderAll();
+      }
+
+      function internalStopTimer(useEndTimeInput = false) {
+        const active = state.activeTimer;
+        if (!active) return false;
+        const nowTs = Date.now();
+        let endTs = nowTs;
+        if (useEndTimeInput && dom.timerEndTime.value) {
+          const startDate = formatDateInput(new Date(active.startTs));
+          const requestedEndTs = localDateTimeToTs(startDate, dom.timerEndTime.value);
+          if (!Number.isFinite(requestedEndTs)) {
+            setFieldError(dom.timerEndTime, 'Die eingegebene Endzeit ist ungültig.');
+            return false;
+          }
+          if (requestedEndTs <= active.startTs) {
+            setFieldError(dom.timerEndTime, 'Die Endzeit muss nach der Startzeit liegen.');
+            return false;
+          }
+          endTs = requestedEndTs;
+        }
+        if (endTs <= active.startTs) {
+          showToast('Ungültige Zeitspanne erkannt.', { variant: 'bad' });
+          return false;
+        }
+        state.entries.push({
+          id: active.id, ticket: active.ticket, notes: active.notes,
+          startTs: active.startTs, endTs, pauseMinutes: 0, createdAt: Date.now(), source: 'timer'
+        });
+        state.activeTimer = null;
+        saveState();
+        return true;
+      }
+
+      function addManualEntry() {
+        const ticket = sanitizeText(dom.manualTicket.value, 60);
+        const date = dom.manualDate.value;
+        const start = dom.manualStart.value;
+        const end = dom.manualEnd.value;
+        const pauseMinutes = clampNumber(dom.manualPause.value, 0, 24 * 60);
+        const notes = sanitizeText(dom.manualNotes.value, 2000);
+
+        let firstInvalid = null;
+        if (!ticket) { setFieldError(dom.manualTicket, 'Pflichtfeld'); firstInvalid = firstInvalid || dom.manualTicket; }
+        if (!date)   { setFieldError(dom.manualDate, 'Pflichtfeld');   firstInvalid = firstInvalid || dom.manualDate; }
+        if (!start)  { setFieldError(dom.manualStart, 'Pflichtfeld');  firstInvalid = firstInvalid || dom.manualStart; }
+        if (!end)    { setFieldError(dom.manualEnd, 'Pflichtfeld');    firstInvalid = firstInvalid || dom.manualEnd; }
+        if (firstInvalid) { firstInvalid.focus(); return; }
+
+        rememberTicket(ticket);
+
+        const startTs = localDateTimeToTs(date, start);
+        const endTs = localDateTimeToTs(date, end);
+        if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) {
+          setFieldError(dom.manualEnd, 'Ende muss nach Start liegen.');
+          return;
+        }
+        if ((endTs - startTs) / 60000 <= pauseMinutes) {
+          setFieldError(dom.manualPause, 'Pause ist größer oder gleich der gesamten Zeitspanne.');
+          return;
+        }
+
+        state.entries.push({
+          id: cryptoRandomId(), ticket, notes, startTs, endTs, pauseMinutes,
+          createdAt: Date.now(), source: 'manual'
+        });
+        saveState();
+        dom.manualTicket.value = '';
+        if (dom.manualTicketPreset) dom.manualTicketPreset.value = '';
+        dom.manualStart.value = '';
+        dom.manualEnd.value = '';
+        dom.manualPause.value = '0';
+        dom.manualNotes.value = '';
+        showToast('Eintrag gespeichert.', { variant: 'good' });
+        renderAll();
+      }
+
+      function renderAll() {
+        renderCurrentTimer();
+        renderStats();
+        renderSummaryAndChart();
+        renderEntries();
+        updateActiveRangeChip();
+      }
+
+      function renderCurrentTimer() {
+        if (!state.activeTimer) {
+          dom.currentTimer.innerHTML = '<div><strong>Kein aktiver Timer</strong><div class="muted">Starte oben einen Timer oder lege manuell einen Eintrag an.</div></div><div class="muted">⏱ bereit</div>';
+          return;
+        }
+        const a = state.activeTimer;
+        const elapsedMs = Date.now() - a.startTs;
+        dom.currentTimer.innerHTML = '';
+        const left = document.createElement('div');
+        left.innerHTML = `<div class="pill">● Aktiv</div><div style="margin-top:8px;"><strong>${escapeHtml(a.ticket || '—')}</strong></div><div class="muted">Start: ${formatDateTime(a.startTs)}</div>`;
+        const right = document.createElement('div');
+        right.innerHTML = `<div class="live-duration">${formatDuration(elapsedMs)}</div><div class="muted">Live-Laufzeit</div>`;
+        dom.currentTimer.append(left, right);
+      }
+
+      function renderStats() {
+        const filtered = getFilteredEntries();
+        const totalMs = filtered.reduce((sum, e) => sum + getNetDurationMs(e), 0);
+        const uniqueTickets = new Set(filtered.filter(e => e.ticket).map(e => e.ticket)).size;
+        const avgMs = filtered.length ? Math.round(totalMs / filtered.length) : 0;
+        const stats = [
+          ['Gesamtzeit', formatDuration(totalMs)],
+          ['Einträge', String(filtered.length)],
+          ['Tickets', String(uniqueTickets)],
+          ['Ø pro Eintrag', formatDuration(avgMs)]
+        ];
+        dom.stats.innerHTML = '';
+        stats.forEach(([label, value]) => {
+          const el = document.createElement('div');
+          el.className = 'stat';
+          el.innerHTML = `<div class="value">${escapeHtml(value)}</div><div class="label">${escapeHtml(label)}</div>`;
+          dom.stats.appendChild(el);
+        });
+      }
+
+      function renderSummaryAndChart() {
+        const filtered = getFilteredEntries();
+        if (viewMode() === 'week') {
+          renderWeekPivot(filtered);
+          renderChart(buildSummaryRows(filtered, dom.groupBy.value));
+          return;
+        }
+        if (!filtered.length) {
+          dom.summaryContainer.innerHTML = '<div class="empty">Keine Daten für den gewählten Tag bzw. die aktuelle Filterung vorhanden.</div>';
+          renderChart([]);
+          return;
+        }
+
+        const rows = buildSummaryRows(filtered, dom.groupBy.value);
+        const table = document.createElement('table');
+        table.className = 'summary-table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Gruppe</th>
+              <th>Gesamtzeit</th>
+              <th>Einträge</th>
+              <th>Tickets</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td data-label="Gruppe">${escapeHtml(row.key)}</td>
+            <td data-label="Gesamtzeit" class="tnum">${escapeHtml(formatDuration(row.ms))}</td>
+            <td data-label="Einträge">${row.count}</td>
+            <td data-label="Tickets">${row.tickets.size}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        dom.summaryContainer.innerHTML = '';
+        dom.summaryContainer.appendChild(table);
+        renderChart(rows);
+      }
+
+      function renderWeekPivot(filtered) {
+        const fromStr = dom.filterFrom.value || formatDateInput(new Date());
+        const range = isoWeekRange(fromStr);
+        const dayCols = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(range.from);
+          d.setDate(range.from.getDate() + i);
+          dayCols.push({ key: formatDateInput(d), date: d, label: d.toLocaleDateString('de-DE', { weekday: 'short' }), dateLabel: d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }), isWeekend: i >= 5 });
+        }
+
+        const ticketMap = new Map();
+        filtered.forEach(entry => {
+          const dayKey = formatDateInput(new Date(entry.startTs));
+          if (!dayCols.find(c => c.key === dayKey)) return;
+          const ticket = entry.ticket || 'Ohne Ticket';
+          if (!ticketMap.has(ticket)) ticketMap.set(ticket, { ticket, days: new Map(), total: 0 });
+          const row = ticketMap.get(ticket);
+          row.days.set(dayKey, (row.days.get(dayKey) || 0) + getNetDurationMs(entry));
+          row.total += getNetDurationMs(entry);
+        });
+
+        const ticketRows = [...ticketMap.values()].sort((a, b) => b.total - a.total);
+
+        const wrap = document.createElement('div');
+        wrap.style.overflowX = 'auto';
+
+        if (!ticketRows.length) {
+          dom.summaryContainer.innerHTML = '';
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          const weekRange = `${range.from.toLocaleDateString('de-DE')} – ${range.to.toLocaleDateString('de-DE')}`;
+          empty.textContent = `Keine Daten für die Woche ${weekRange}.`;
+          wrap.appendChild(empty);
+          dom.summaryContainer.appendChild(wrap);
+          return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'week-pivot';
+
+        const weekRange = `${range.from.toLocaleDateString('de-DE')} – ${range.to.toLocaleDateString('de-DE')}`;
+        let thead = '<thead><tr><th class="col-ticket">Ticket – Woche ' + escapeHtml(weekRange) + '</th>';
+        dayCols.forEach(c => {
+          thead += `<th class="tnum${c.isWeekend ? ' weekend' : ''}">${escapeHtml(c.label)}<br><span class="muted" style="font-weight:400;font-size:11px">${escapeHtml(c.dateLabel)}</span></th>`;
+        });
+        thead += '<th class="tnum">Summe</th></tr></thead>';
+
+        let tbody = '<tbody>';
+        ticketRows.forEach(tr => {
+          tbody += `<tr><td class="col-ticket"><strong>${escapeHtml(tr.ticket)}</strong></td>`;
+          dayCols.forEach(c => {
+            const ms = tr.days.get(c.key) || 0;
+            const cls = 'tnum' + (c.isWeekend ? ' weekend' : '');
+            tbody += `<td class="${cls}">${ms ? escapeHtml(formatDuration(ms)) : '<span class="muted">·</span>'}</td>`;
+          });
+          tbody += `<td class="tnum"><strong>${escapeHtml(formatDuration(tr.total))}</strong></td></tr>`;
+        });
+        tbody += '</tbody>';
+
+        let tfoot = '<tfoot><tr><td class="col-ticket">Tagessumme</td>';
+        let weekTotal = 0;
+        dayCols.forEach(c => {
+          const sum = ticketRows.reduce((s, tr) => s + (tr.days.get(c.key) || 0), 0);
+          weekTotal += sum;
+          tfoot += `<td class="tnum${c.isWeekend ? ' weekend' : ''}">${sum ? escapeHtml(formatDuration(sum)) : '<span class="muted">·</span>'}</td>`;
+        });
+        tfoot += `<td class="tnum">${escapeHtml(formatDuration(weekTotal))}</td></tr></tfoot>`;
+
+        table.innerHTML = thead + tbody + tfoot;
+        wrap.appendChild(table);
+        dom.summaryContainer.innerHTML = '';
+        dom.summaryContainer.appendChild(wrap);
+      }
+
+      function buildSummaryRows(filtered, groupBy) {
+        const groups = new Map();
+        filtered.forEach(entry => {
+          const key = getGroupKey(entry, groupBy);
+          const row = groups.get(key) || { key, ms: 0, count: 0, tickets: new Set() };
+          row.ms += getNetDurationMs(entry);
+          row.count += 1;
+          if (entry.ticket) row.tickets.add(entry.ticket);
+          groups.set(key, row);
+        });
+        return [...groups.values()].sort((a, b) => b.ms - a.ms);
+      }
+
+      function renderChart(rows) {
+        const canvas = dom.summaryChart;
+        const ctx = canvas.getContext('2d');
+        const ratio = Math.max(1, window.devicePixelRatio || 1);
+        const cssWidth = Math.max(320, canvas.clientWidth || 1200);
+        const cssHeight = Math.max(260, canvas.clientHeight || 320);
+        canvas.width = Math.round(cssWidth * ratio);
+        canvas.height = Math.round(cssHeight * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+        const mutedColor = getCssVar('--muted') || '#9aa5bf';
+        const textColor = getCssVar('--text') || '#ebeff8';
+        const gridColor = getCssVar('--chart-grid') || 'rgba(255,255,255,.08)';
+        const axisColor = getCssVar('--border') || 'rgba(255,255,255,.18)';
+
+        lastChartLayout = null;
+
+        if (!rows.length) {
+          dom.chartSubtitle.textContent = 'Keine Daten für das Diagramm';
+          ctx.fillStyle = mutedColor;
+          ctx.font = '14px system-ui, sans-serif';
+          ctx.fillText('Keine Daten vorhanden', 16, 24);
+          return;
+        }
+
+        const topRows = rows.slice(0, 8);
+        dom.chartSubtitle.textContent = `Top ${topRows.length} nach ${groupLabel(dom.groupBy.value)} am ${formatDateDisplay(dom.filterFrom.value)}`;
+
+        const pad = { top: 18, right: 18, bottom: 72, left: 72 };
+        const chartWidth = cssWidth - pad.left - pad.right;
+        const chartHeight = cssHeight - pad.top - pad.bottom;
+        const maxValue = Math.max(...topRows.map(r => r.ms), 1);
+        const gridSteps = 4;
+
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        ctx.fillStyle = mutedColor;
+        ctx.font = '12px system-ui, sans-serif';
+
+        for (let i = 0; i <= gridSteps; i++) {
+          const y = pad.top + (chartHeight / gridSteps) * i;
+          ctx.beginPath();
+          ctx.moveTo(pad.left, y);
+          ctx.lineTo(pad.left + chartWidth, y);
+          ctx.stroke();
+          const value = maxValue * (1 - i / gridSteps);
+          ctx.fillText(formatDurationAxis(value), 8, y + 4);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(pad.left, pad.top);
+        ctx.lineTo(pad.left, pad.top + chartHeight);
+        ctx.lineTo(pad.left + chartWidth, pad.top + chartHeight);
+        ctx.strokeStyle = axisColor;
+        ctx.stroke();
+
+        const gap = 16;
+        const barWidth = Math.max(24, (chartWidth - gap * (topRows.length - 1)) / topRows.length);
+        const barColors = [
+          getCssVar('--chart-c1'), getCssVar('--chart-c2'), getCssVar('--chart-c3'), getCssVar('--chart-c4'),
+          getCssVar('--chart-c5'), getCssVar('--chart-c6'), getCssVar('--chart-c7'), getCssVar('--chart-c8')
+        ];
+        const bars = [];
+
+        topRows.forEach((row, index) => {
+          const x = pad.left + index * (barWidth + gap);
+          const barHeight = Math.max(2, (row.ms / maxValue) * chartHeight);
+          const y = pad.top + chartHeight - barHeight;
+          ctx.fillStyle = barColors[index % barColors.length] || getCssVar('--chart-fill');
+          roundRect(ctx, x, y, barWidth, barHeight, 8);
+          ctx.fill();
+
+          ctx.fillStyle = textColor;
+          ctx.font = '12px system-ui, sans-serif';
+          const durationText = formatDurationAxis(row.ms);
+          const durationWidth = ctx.measureText(durationText).width;
+          ctx.fillText(durationText, x + Math.max(0, (barWidth - durationWidth) / 2), y - 8);
+
+          ctx.fillStyle = mutedColor;
+          wrapLabel(ctx, truncate(row.key, 18), x + barWidth / 2, pad.top + chartHeight + 18, Math.max(48, barWidth + 12), 14);
+
+          bars.push({ index, x, y, w: barWidth, h: barHeight, row });
+        });
+
+        lastChartLayout = { bars, pad, chartWidth, chartHeight, cssWidth, cssHeight };
+      }
+
+      function chartBarAt(clientX, clientY) {
+        if (!lastChartLayout) return null;
+        const rect = dom.summaryChart.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        for (const bar of lastChartLayout.bars) {
+          if (x >= bar.x && x <= bar.x + bar.w && y >= bar.y - 4 && y <= bar.y + bar.h) return bar;
+        }
+        return null;
+      }
+
+      function handleChartHover(event) {
+        const bar = chartBarAt(event.clientX, event.clientY);
+        if (!bar) {
+          dom.chartTooltip.classList.remove('show');
+          return;
+        }
+        const wrapRect = dom.chartTooltip.parentElement.getBoundingClientRect();
+        const canvasRect = dom.summaryChart.getBoundingClientRect();
+        const cx = canvasRect.left - wrapRect.left + bar.x + bar.w / 2;
+        const cy = canvasRect.top - wrapRect.top + bar.y;
+        dom.chartTooltip.style.left = cx + 'px';
+        dom.chartTooltip.style.top = cy + 'px';
+        const row = bar.row;
+        dom.chartTooltip.innerHTML = '';
+        const title = document.createElement('div');
+        title.className = 'ct-title';
+        title.textContent = row.key;
+        dom.chartTooltip.appendChild(title);
+        const rows = [
+          ['Dauer', formatDuration(row.ms)],
+          ['Einträge', String(row.count)],
+          ['Tickets', String(row.tickets.size)]
+        ];
+        rows.forEach(([k, v]) => {
+          const line = document.createElement('div');
+          line.className = 'ct-row';
+          const ks = document.createElement('span'); ks.textContent = k;
+          const vs = document.createElement('span'); vs.textContent = v;
+          line.append(ks, vs);
+          dom.chartTooltip.appendChild(line);
+        });
+        dom.chartTooltip.classList.add('show');
+      }
+
+      function hideChartTooltip() {
+        if (dom.chartTooltip) dom.chartTooltip.classList.remove('show');
+      }
+
+      function getCssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+
+      function wrapLabel(ctx, text, centerX, startY, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        const lines = [];
+        let current = '';
+        for (const word of words) {
+          const test = current ? current + ' ' + word : word;
+          if (ctx.measureText(test).width > maxWidth && current) {
+            lines.push(current);
+            current = word;
+          } else {
+            current = test;
+          }
+        }
+        if (current) lines.push(current);
+        lines.slice(0, 2).forEach((line, i) => {
+          const width = ctx.measureText(line).width;
+          ctx.fillText(line, centerX - width / 2, startY + i * lineHeight);
+        });
+      }
+
+      function formatHoursLabel(ms) {
+        const hours = ms / 3600000;
+        return `${hours.toFixed(2)} h`;
+      }
+
+      function formatDurationAxis(ms) {
+        const totalSec = Math.max(0, Math.round(ms / 1000));
+        if (totalSec < 60) return `${totalSec}s`;
+        if (ms < 3600000) {
+          const m = Math.floor(totalSec / 60);
+          const s = totalSec % 60;
+          return s ? `${m}:${String(s).padStart(2,'0')}` : `${m} min`;
+        }
+        if (ms < 86400000) {
+          const h = Math.floor(totalSec / 3600);
+          const m = Math.round((totalSec % 3600) / 60);
+          return `${h}:${String(m).padStart(2,'0')} h`;
+        }
+        return `${(ms / 3600000).toFixed(1)} h`;
+      }
+
+      function groupLabel(mode) {
+        return mode === 'day' ? 'Tag' : 'Ticket';
+      }
+
+      function renderEntries() {
+        const filtered = getFilteredEntries().sort((a, b) => b.startTs - a.startTs);
+        if (!filtered.length) {
+          dom.entriesContainer.innerHTML = '<div class="empty">Noch keine Einträge für den gewählten Tag vorhanden.</div>';
+          return;
+        }
+        const totalNetMs = filtered.reduce((s, e) => s + getNetDurationMs(e), 0);
+        const totalPauseMin = filtered.reduce((s, e) => s + (e.pauseMinutes || 0), 0);
+
+        const table = document.createElement('table');
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Ticket</th>
+              <th>Notizen</th>
+              <th>Von</th>
+              <th>Bis</th>
+              <th>Pause</th>
+              <th>Netto</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td data-label="Datum" colspan="5">Summe (${filtered.length} ${filtered.length === 1 ? 'Eintrag' : 'Einträge'})</td>
+              <td data-label="Pause" class="tnum">${totalPauseMin} min</td>
+              <td data-label="Netto" class="tnum">${escapeHtml(formatDuration(totalNetMs))}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        `;
+        const tbody = table.querySelector('tbody');
+        filtered.forEach(entry => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td data-label="Datum" class="tnum">${escapeHtml(formatDateOnly(entry.startTs))}</td>
+            <td data-label="Ticket"><strong>${escapeHtml(entry.ticket || '—')}</strong></td>
+            <td data-label="Notizen">${entry.notes ? escapeHtml(truncate(entry.notes, 140)) : '<span class="muted">—</span>'}</td>
+            <td data-label="Von" class="tnum">${escapeHtml(formatTimeOnly(entry.startTs))}</td>
+            <td data-label="Bis" class="tnum">${escapeHtml(formatTimeOnly(entry.endTs))}</td>
+            <td data-label="Pause" class="tnum">${entry.pauseMinutes || 0} min</td>
+            <td data-label="Netto" class="tnum">${escapeHtml(formatDuration(getNetDurationMs(entry)))}</td>
+            <td data-label="Aktionen"></td>
+          `;
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Bearbeiten';
+          editBtn.addEventListener('click', () => openEditDialog(entry.id));
+          const cloneBtn = document.createElement('button');
+          cloneBtn.textContent = 'Duplizieren';
+          cloneBtn.addEventListener('click', () => duplicateEntry(entry.id));
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = 'Löschen';
+          deleteBtn.className = 'bad';
+          deleteBtn.addEventListener('click', () => deleteEntry(entry.id));
+          actions.append(editBtn, cloneBtn, deleteBtn);
+          tr.querySelector('td:last-child').appendChild(actions);
+          tbody.appendChild(tr);
+        });
+        dom.entriesContainer.innerHTML = '';
+        dom.entriesContainer.appendChild(table);
+      }
+
+      function getFilteredEntries() {
+        const from = dom.filterFrom.value ? new Date(dom.filterFrom.value + 'T00:00:00').getTime() : -Infinity;
+        const to = dom.filterTo.value ? new Date(dom.filterTo.value + 'T23:59:59').getTime() : Infinity;
+        const q = sanitizeText(dom.filterTicket.value, 200).toLowerCase();
+        return state.entries.filter(entry => {
+          if (entry.startTs < from || entry.startTs > to) return false;
+          if (!q) return true;
+          const hay = `${entry.ticket} ${entry.notes || ''}`.toLowerCase();
+          return hay.includes(q);
+        });
+      }
+
+      function getGroupKey(entry, mode) {
+        return mode === 'day' ? formatDateOnly(entry.startTs) : (entry.ticket || 'Ohne Ticket');
+      }
+
+      function openEditDialog(id) {
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        dom.editId.value = entry.id;
+        dom.editTicket.value = entry.ticket || '';
+        dom.editDate.value = formatDateInput(new Date(entry.startTs));
+        dom.editStart.value = formatTimeInput(entry.startTs);
+        dom.editEnd.value = formatTimeInput(entry.endTs);
+        dom.editPause.value = String(entry.pauseMinutes || 0);
+        dom.editNotes.value = entry.notes || '';
+        dom.editDialog.showModal();
+      }
+
+      function saveEditEntry() {
+        const id = dom.editId.value;
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        const ticket = sanitizeText(dom.editTicket.value, 60);
+        const notes = sanitizeText(dom.editNotes.value, 2000);
+        const date = dom.editDate.value;
+        const start = dom.editStart.value;
+        const end = dom.editEnd.value;
+        const pauseMinutes = clampNumber(dom.editPause.value, 0, 24 * 60);
+
+        let firstInvalid = null;
+        if (!ticket) { setFieldError(dom.editTicket, 'Pflichtfeld'); firstInvalid = firstInvalid || dom.editTicket; }
+        if (!date)   { setFieldError(dom.editDate, 'Pflichtfeld');   firstInvalid = firstInvalid || dom.editDate; }
+        if (!start)  { setFieldError(dom.editStart, 'Pflichtfeld');  firstInvalid = firstInvalid || dom.editStart; }
+        if (!end)    { setFieldError(dom.editEnd, 'Pflichtfeld');    firstInvalid = firstInvalid || dom.editEnd; }
+        if (firstInvalid) { firstInvalid.focus(); return; }
+
+        rememberTicket(ticket);
+        const startTs = localDateTimeToTs(date, start);
+        const endTs = localDateTimeToTs(date, end);
+        if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) {
+          setFieldError(dom.editEnd, 'Ende muss nach Start liegen.');
+          return;
+        }
+        if ((endTs - startTs) / 60000 <= pauseMinutes) {
+          setFieldError(dom.editPause, 'Pause ist größer oder gleich der gesamten Zeitspanne.');
+          return;
+        }
+        entry.ticket = ticket;
+        entry.notes = notes;
+        entry.startTs = startTs;
+        entry.endTs = endTs;
+        entry.pauseMinutes = pauseMinutes;
+        saveState();
+        dom.editDialog.close();
+        showToast('Eintrag aktualisiert.', { variant: 'good' });
+        renderAll();
+      }
+
+      function duplicateEntry(id) {
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        state.entries.push({ ...structuredCloneSafe(entry), id: cryptoRandomId(), createdAt: Date.now() });
+        saveState();
+        renderAll();
+      }
+
+      async function deleteEntry(id) {
+        const entry = state.entries.find(e => e.id === id);
+        if (!entry) return;
+        const label = entry.ticket || 'ohne Ticket';
+        const ok = await askConfirm({
+          title: 'Eintrag löschen',
+          message: `Eintrag „${label}" wirklich löschen?`,
+          confirmLabel: 'Löschen',
+          confirmVariant: 'bad'
+        });
+        if (!ok) return;
+        lastDeletedEntry = structuredCloneSafe(entry);
+        state.entries = state.entries.filter(e => e.id !== id);
+        saveState();
+        renderAll();
+        showToast(`Eintrag „${label}" gelöscht.`, {
+          actionLabel: 'Rückgängig',
+          timeoutMs: 8000,
+          onAction: () => {
+            if (!lastDeletedEntry || lastDeletedEntry.id !== entry.id) return;
+            state.entries.push(lastDeletedEntry);
+            lastDeletedEntry = null;
+            saveState();
+            renderAll();
+            showToast('Eintrag wiederhergestellt.', { variant: 'good' });
+          }
+        });
+      }
+
+      function exportJson() {
+        const data = {
+          exportedAt: new Date().toISOString(),
+          version: 1,
+          app: 'Lokaler Zeit-Tracker',
+          payload: state
+        };
+        downloadBlob(JSON.stringify(data, null, 2), 'application/json', `zeit-tracker-export-${fileDateStamp()}.json`);
+      }
+
+      function exportCsv() {
+        const headers = ['Datum','Start','Ende','Ticket','PauseMinuten','NettoMinuten','Notizen','Quelle'];
+        const rows = state.entries.slice().sort((a, b) => a.startTs - b.startTs).map(e => [
+          formatDateOnly(e.startTs),
+          formatTimeOnly(e.startTs),
+          formatTimeOnly(e.endTs),
+          e.ticket,
+          String(e.pauseMinutes || 0),
+          String(Math.round(getNetDurationMs(e) / 60000)),
+          e.notes || '',
+          e.source || ''
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(csvEscape).join(';')).join('\r\n');
+        downloadBlob(csv, 'text/csv;charset=utf-8', `zeit-tracker-export-${fileDateStamp()}.csv`);
+      }
+
+      async function importJson(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const payload = parsed && parsed.payload ? parsed.payload : parsed;
+          if (!payload || !Array.isArray(payload.entries)) throw new Error('Ungültiges Format');
+          const importedEntries = payload.entries.filter(isValidEntry).map(normalizeEntry);
+          const importedActive = payload.activeTimer && isValidActiveTimer(payload.activeTimer) ? payload.activeTimer : null;
+          const mode = await askConfirm({
+            title: 'Einträge importieren',
+            message: `Gefunden: ${importedEntries.length} Einträge. Vorhandene Daten ersetzen oder anhängen?`,
+            confirmLabel: 'Anhängen',
+            confirmVariant: 'primary',
+            cancelLabel: 'Abbrechen',
+            extraButtons: [{ label: 'Ersetzen', value: 'replace', variant: 'bad' }]
+          });
+          if (mode === null) return;
+          if (mode === 'replace') {
+            state.entries = importedEntries;
+            state.activeTimer = importedActive;
+          } else {
+            state.entries.push(...importedEntries);
+          }
+          rememberTicketsFromEntries(state.entries);
+          saveState();
+          renderAll();
+          showToast(`${importedEntries.length} Einträge importiert.`, { variant: 'good' });
+        } catch (err) {
+          console.error(err);
+          showToast('Import fehlgeschlagen. Bitte gültige JSON-Datei verwenden.', { variant: 'bad' });
+        } finally {
+          event.target.value = '';
+        }
+      }
+
+      async function clearAllData() {
+        const ok = await askConfirm({
+          title: 'Alle Daten löschen',
+          message: 'Wirklich alle lokal gespeicherten Einträge und den laufenden Timer löschen? Ein Snapshot wird vorher automatisch angelegt, sodass eine Wiederherstellung möglich bleibt.',
+          confirmLabel: 'Endgültig löschen',
+          confirmVariant: 'bad'
+        });
+        if (!ok) return;
+        createSnapshot('Vor Löschen');
+        state.entries = [];
+        state.activeTimer = null;
+        saveState();
+        const today = formatDateInput(new Date());
+        dom.dayFocus.value = today;
+        applyFocusedDay(today);
+        renderAll();
+        renderSnapshotList();
+        showToast('Alle Einträge gelöscht. Snapshot zur Wiederherstellung verfügbar.', { variant: 'warn', timeoutMs: 6000 });
+      }
+
+      function isValidEntry(e) {
+        return e && typeof e === 'object' && typeof e.ticket === 'string' &&
+          Number.isFinite(Number(e.startTs)) && Number.isFinite(Number(e.endTs));
+      }
+
+      function normalizeEntry(e) {
+        return {
+          id: typeof e.id === 'string' ? e.id : cryptoRandomId(),
+          ticket: sanitizeText(e.ticket, 60),
+          task: sanitizeText(e.task, 120),
+          project: sanitizeText(e.project || '', 120),
+          notes: sanitizeText(e.notes || '', 2000),
+          startTs: Number(e.startTs),
+          endTs: Number(e.endTs),
+          pauseMinutes: clampNumber(e.pauseMinutes || 0, 0, 24 * 60),
+          createdAt: Number.isFinite(Number(e.createdAt)) ? Number(e.createdAt) : Date.now(),
+          source: e.source === 'manual' ? 'manual' : 'timer'
+        };
+      }
+
+      function isValidActiveTimer(e) {
+        return e && typeof e === 'object' && typeof e.ticket === 'string' &&
+          Number.isFinite(Number(e.startTs));
+      }
+      function normalizeActiveTimer(e) {
+        return {
+          id: typeof e.id === 'string' ? e.id : cryptoRandomId(),
+          ticket: sanitizeText(e.ticket, 60),
+          task: sanitizeText(e.task, 120),
+          project: sanitizeText(e.project || '', 120),
+          notes: sanitizeText(e.notes || '', 2000),
+          startTs: Number(e.startTs)
+        };
+      }
+
+
+      function sanitizeText(value, maxLen) {
+        return String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, maxLen);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function clampNumber(value, min, max) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return min;
+        return Math.min(max, Math.max(min, Math.round(n)));
+      }
+
+      function getNetDurationMs(entry) {
+        return Math.max(0, (entry.endTs - entry.startTs) - ((entry.pauseMinutes || 0) * 60000));
+      }
+
+      function localDateTimeToTs(date, time) {
+        return new Date(`${date}T${time}:00`).getTime();
+      }
+
+      function formatDuration(ms) {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+
+      function formatDateTime(ts) {
+        return new Date(ts).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+      }
+
+      function formatDateOnly(ts) {
+        return new Date(ts).toLocaleDateString('de-DE');
+      }
+
+      function formatDateDisplay(dateStr) {
+        if (!dateStr) return '';
+        return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE');
+      }
+
+      function formatTimeOnly(ts) {
+        return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function formatTimeInput(ts) {
+        const d = new Date(ts);
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+
+      function formatDateInput(date) {
+        const d = new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+
+      function truncate(str, max) {
+        return str.length > max ? str.slice(0, max - 1) + '…' : str;
+      }
+
+      function csvEscape(value) {
+        const text = String(value ?? '');
+        return '"' + text.replaceAll('"', '""') + '"';
+      }
+
+      function downloadBlob(content, type, filename) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+      }
+
+      function fileDateStamp() {
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+
+      function structuredCloneSafe(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function cryptoRandomId() {
+        try {
+          const bytes = new Uint8Array(10);
+          crypto.getRandomValues(bytes);
+          return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch {
+          return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
