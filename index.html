@@ -694,10 +694,21 @@
       bindEvents();
       updateViewToggle();
       if (viewMode() === 'week') applyWeekOfFocusedDay();
+      const wasAutoStoppedAtBoot = autoStopActiveTimerIfDayEnded();
       renderAll();
       renderSnapshotList();
       scheduleMidnightRefresh();
-      setInterval(() => renderCurrentTimer(), 1000);
+      if (wasAutoStoppedAtBoot) {
+        showToast('Timer wurde beim Tagesende automatisch gestoppt.', { variant: 'warn', timeoutMs: 6000 });
+      }
+      setInterval(() => {
+        if (autoStopActiveTimerIfDayEnded()) {
+          showToast('Timer wurde beim Tagesende automatisch gestoppt.', { variant: 'warn', timeoutMs: 6000 });
+          renderAll();
+        } else {
+          renderCurrentTimer();
+        }
+      }, 1000);
 
       function loadTheme() {
         const stored = localStorage.getItem(THEME_KEY);
@@ -1635,6 +1646,33 @@
         state.entries.push({
           id: active.id, ticket: active.ticket, notes: active.notes,
           startTs: active.startTs, endTs, pauseMinutes: 0, createdAt: Date.now(), source: 'timer'
+        });
+        state.activeTimer = null;
+        saveState();
+        return true;
+      }
+
+      function endOfDayMs(ts) {
+        const d = new Date(ts);
+        d.setHours(23, 59, 59, 999);
+        return d.getTime();
+      }
+
+      function autoStopActiveTimerIfDayEnded() {
+        const active = state.activeTimer;
+        if (!active) return false;
+        const dayEnd = endOfDayMs(active.startTs);
+        if (Date.now() <= dayEnd) return false;
+        if (dayEnd <= active.startTs) {
+          // Defensive: invalid start; just drop the active timer.
+          state.activeTimer = null;
+          saveState();
+          return true;
+        }
+        state.entries.push({
+          id: active.id, ticket: active.ticket, notes: active.notes,
+          startTs: active.startTs, endTs: dayEnd, pauseMinutes: 0,
+          createdAt: Date.now(), source: 'timer'
         });
         state.activeTimer = null;
         saveState();
