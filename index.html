@@ -1652,7 +1652,8 @@
         }
         state.entries.push({
           id: active.id, ticket: active.ticket, notes: active.notes,
-          startTs: active.startTs, endTs, pauseMinutes: 0, createdAt: Date.now(), source: 'timer'
+          startTs: floorToMinute(active.startTs), endTs: ceilToMinute(endTs),
+          pauseMinutes: 0, createdAt: Date.now(), source: 'timer'
         });
         state.activeTimer = null;
         saveState();
@@ -1677,7 +1678,7 @@
         }
         state.entries.push({
           id: active.id, ticket: active.ticket, notes: active.notes,
-          startTs: active.startTs, endTs: dayEnd, pauseMinutes: 0,
+          startTs: floorToMinute(active.startTs), endTs: dayEnd, pauseMinutes: 0,
           createdAt: Date.now(), source: 'timer'
         });
         state.activeTimer = null;
@@ -2406,6 +2407,17 @@
         const n = Number(value);
         if (!Number.isFinite(n)) return min;
         return Math.min(max, Math.max(min, Math.round(n)));
+      }
+
+      // Timer entries are stored on full-minute boundaries: the start is rounded
+      // down and the end is rounded up, so the recorded duration is always
+      // rounded up to the next full minute. (Timezone offsets are whole minutes,
+      // so epoch-minute boundaries align with local :00 seconds.)
+      function floorToMinute(ts) {
+        return Math.floor(ts / 60000) * 60000;
+      }
+      function ceilToMinute(ts) {
+        return Math.ceil(ts / 60000) * 60000;
       }
 
       function getNetDurationMs(entry) {
