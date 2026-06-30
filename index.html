@@ -1281,9 +1281,10 @@
       }
 
       function initDefaults() {
-        currentToday = getTodayStr();
-        dom.dayFocus.value = currentToday;
-        applyFocusedDay(currentToday);
+        const today = formatDateInput(new Date());
+        currentToday = today;
+        dom.dayFocus.value = today;
+        applyFocusedDay(today);
       }
 
       function bindEvents() {
