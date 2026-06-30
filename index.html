@@ -472,6 +472,7 @@
           <div class="field s3">
             <label for="manualDate">Datum</label>
             <input id="manualDate" type="date">
+            <div class="ticket-help">Folgt dem in der Auswertung gewählten Tag.</div>
           </div>
           <div class="field s3">
             <label for="manualStart">Start</label>
@@ -687,6 +688,7 @@
 
       let lastChartLayout = null;
       let lastDeletedEntry = null;
+      let currentToday = '';
 
       let customTickets = loadCustomTickets();
       const state = loadState();
@@ -1279,10 +1281,9 @@
       }
 
       function initDefaults() {
-        const today = formatDateInput(new Date());
-        dom.manualDate.value = today;
-        dom.dayFocus.value = today;
-        applyFocusedDay(today);
+        currentToday = getTodayStr();
+        dom.dayFocus.value = currentToday;
+        applyFocusedDay(currentToday);
       }
 
       function bindEvents() {
@@ -1328,7 +1329,7 @@
           renderAll();
         });
         dom.todayBtn.addEventListener('click', () => {
-          const today = formatDateInput(new Date());
+          const today = getTodayStr();
           dom.dayFocus.value = today;
           if (viewMode() === 'week') applyWeekOfFocusedDay();
           else applyFocusedDay(today);
@@ -1348,7 +1349,7 @@
         document.addEventListener('keydown', handleGlobalShortcut);
 
         dom.clearFiltersBtn.addEventListener('click', () => {
-          const today = formatDateInput(new Date());
+          const today = getTodayStr();
           dom.filterTicket.value = '';
           dom.groupBy.value = 'ticket';
           dom.dayFocus.value = today;
@@ -1390,11 +1391,41 @@
         dom.summaryChart.addEventListener('mousemove', handleChartHover);
         dom.summaryChart.addEventListener('mouseleave', hideChartTooltip);
         dom.summaryChart.addEventListener('click', handleChartHover);
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') refreshTodayDependentFields();
+        });
+        window.addEventListener('focus', refreshTodayDependentFields);
       }
 
       function applyFocusedDay(dateStr) {
         dom.filterFrom.value = dateStr;
         dom.filterTo.value = dateStr;
+        dom.manualDate.value = dateStr;
+        clearFieldError(dom.manualDate);
+      }
+
+      function getTodayStr() {
+        return formatDateInput(new Date());
+      }
+
+      function refreshTodayDependentFields() {
+        const newToday = getTodayStr();
+        if (newToday === currentToday) return;
+        const prevToday = currentToday;
+        currentToday = newToday;
+        // Advance manualDate only if it was tracking the previous today or is empty
+        if (!dom.manualDate.value || dom.manualDate.value === prevToday) {
+          dom.manualDate.value = newToday;
+          clearFieldError(dom.manualDate);
+        }
+        // Advance focused day if it was tracking the previous today
+        if (dom.dayFocus.value === prevToday) {
+          dom.dayFocus.value = newToday;
+          if (viewMode() === 'week') applyWeekOfFocusedDay();
+          else applyFocusedDay(newToday);
+          renderAll();
+        }
       }
 
       function isTypingTarget(target) {
@@ -1482,11 +1513,11 @@
       }
 
       function applyWeekOfFocusedDay() {
-        const ref = dom.dayFocus.value || formatDateInput(new Date());
+        const ref = dom.dayFocus.value || getTodayStr();
         const range = isoWeekRange(ref);
         dom.filterFrom.value = formatDateInput(range.from);
         dom.filterTo.value = formatDateInput(range.to);
-        if (!dom.dayFocus.value) dom.dayFocus.value = formatDateInput(new Date());
+        if (!dom.dayFocus.value) dom.dayFocus.value = getTodayStr();
       }
 
       function computeRange(rangeId, refDate = new Date()) {
@@ -1516,9 +1547,14 @@
         } else {
           const fromStr = formatDateInput(range.from);
           const toStr = formatDateInput(range.to);
-          dom.filterFrom.value = fromStr;
-          dom.filterTo.value = toStr;
-          dom.dayFocus.value = (fromStr === toStr) ? fromStr : '';
+          if (fromStr === toStr) {
+            dom.dayFocus.value = fromStr;
+            applyFocusedDay(fromStr);
+          } else {
+            dom.filterFrom.value = fromStr;
+            dom.filterTo.value = toStr;
+            dom.dayFocus.value = '';
+          }
         }
         updateActiveRangeChip();
         renderAll();
@@ -1540,16 +1576,7 @@
         const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
         const ms = next.getTime() - now.getTime();
         setTimeout(() => {
-          const today = formatDateInput(new Date());
-          // Only auto-advance if user was viewing previous "today"
-          if (dom.dayFocus.value && dom.dayFocus.value !== today) {
-            const prevToday = formatDateInput(new Date(Date.now() - 86400000));
-            if (dom.dayFocus.value === prevToday) {
-              dom.dayFocus.value = today;
-              applyFocusedDay(today);
-              renderAll();
-            }
-          }
+          refreshTodayDependentFields();
           scheduleMidnightRefresh();
         }, Math.max(1000, ms));
       }
@@ -2346,9 +2373,9 @@
         state.entries = [];
         state.activeTimer = null;
         saveState();
-        const today = formatDateInput(new Date());
-        dom.dayFocus.value = today;
-        applyFocusedDay(today);
+        currentToday = getTodayStr();
+        dom.dayFocus.value = currentToday;
+        applyFocusedDay(currentToday);
         renderAll();
         renderSnapshotList();
         showToast('Alle Einträge gelöscht. Snapshot zur Wiederherstellung verfügbar.', { variant: 'warn', timeoutMs: 6000 });
