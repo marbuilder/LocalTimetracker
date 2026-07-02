@@ -640,8 +640,13 @@
       <div class="row">
         <div class="field s12">
           <label for="editTicket">Ticket-Nr. *</label>
-          <input id="editTicket" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" enterkeyhint="done" list="ticketSuggestions">
-          <div class="ticket-help">Frei eingeben oder aus den gespeicherten Tickets per Autocomplete wählen.</div>
+            <div class="ticket-row">
+              <input id="editTicket" maxlength="60" placeholder="Ticket-Nr. eingeben" autocomplete="off" enterkeyhint="done" list="ticketSuggestions">
+              <select id="editTicketPreset" aria-label="Gespeichertes Ticket auswählen">
+                <option value="">Vorauswahl…</option>
+              </select>
+            </div>
+            <div class="ticket-help">Frei eingeben oder aus der Vorauswahl-Liste wählen. Autocomplete ist zusätzlich aktiv.</div>
         </div>
       </div>
       <div class="row">
@@ -1047,7 +1052,7 @@
           'createSnapshotBtn','snapshotListContainer',
           'themeToggleBtn',
           'currentTimer','stats','summaryContainer','entriesContainer','summaryChart','chartSubtitle','chartTooltip',
-          'editDialog','editId','editTicket','editDate','editStart','editEnd','editPause','editNotes','cancelEditBtn','saveEditBtn',
+          'editDialog','editId','editTicket','editTicketPreset','editDate','editStart','editEnd','editPause','editNotes','cancelEditBtn','saveEditBtn',
           'confirmDialog','confirmDialogTitle','confirmDialogMessage','confirmDialogActions','toastRoot'
         ].forEach(id => dom[id] = qs(id));
       }
@@ -1101,7 +1106,7 @@
 
       function populateTicketPresets() {
         const tickets = getAllTickets();
-        [dom.ticketNumberPreset, dom.manualTicketPreset].forEach(select => {
+        [dom.ticketNumberPreset, dom.manualTicketPreset, dom.editTicketPreset].forEach(select => {
           if (!select) return;
           const current = select.value;
           select.innerHTML = '';
@@ -1312,6 +1317,7 @@
         }
         dom.ticketNumberPreset.addEventListener('change', () => applyPresetSelect(dom.ticketNumberPreset, dom.ticketNumber));
         dom.manualTicketPreset.addEventListener('change', () => applyPresetSelect(dom.manualTicketPreset, dom.manualTicket));
+        if (dom.editTicketPreset) dom.editTicketPreset.addEventListener('change', () => applyPresetSelect(dom.editTicketPreset, dom.editTicket));
 
         dom.addManualBtn.addEventListener('click', addManualEntry);
         [dom.filterFrom, dom.filterTo, dom.filterTicket, dom.groupBy].forEach(el => el.addEventListener('input', renderAll));
@@ -2218,6 +2224,15 @@
         dom.editEnd.value = formatTimeInput(entry.endTs);
         dom.editPause.value = String(entry.pauseMinutes || 0);
         dom.editNotes.value = entry.notes || '';
+        // Set preset dropdown to match ticket if it exists in presets
+        if (dom.editTicketPreset && entry.ticket) {
+          const tickets = getAllTickets();
+          if (tickets.includes(entry.ticket)) {
+            dom.editTicketPreset.value = entry.ticket;
+          } else {
+            dom.editTicketPreset.value = '';
+          }
+        }
         dom.editDialog.showModal();
       }
 
