@@ -89,7 +89,7 @@
           assert('timer start/end time controls exist (date is implicit "today")', source.includes('id="timerStartTime" type="time"') && source.includes('id="timerEndTime" type="time"'), 'timerStartTime/timerEndTime controls present');
           assert('startTimer reads the optional start time from #timerStartTime', startTimer.includes('dom.timerStartTime.value') && startTimer.includes('localDateTimeToTs(today, dom.timerStartTime.value)'), startTimer);
           assert('backdated timer start is persisted instead of hard-coded Date.now()', startTimer.includes('startTs') && startTimer.includes('requestedStartTs'), startTimer);
-          assert('future timer starts are rejected', startTimer.includes('requestedStartTs > nowTs') && startTimer.includes('Die Startzeit darf nicht in der Zukunft liegen.'), startTimer);
+          assert('future same-day timer starts are now allowed (no longer rejected)', !startTimer.includes('Die Startzeit darf nicht in der Zukunft liegen.'), startTimer);
           assert('future timer end times are now allowed (no longer rejected at stop)', !internalStopTimer.includes('Die Endzeit darf nicht in der Zukunft liegen'), internalStopTimer);
           assert('end time must be after start time (validation persists)', internalStopTimer.includes('Die Endzeit muss nach der Startzeit liegen'), internalStopTimer);
 

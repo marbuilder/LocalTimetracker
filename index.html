@@ -234,6 +234,16 @@
       color: #0e6a48;
       border-color: rgba(19,108,75,.45);
     }
+    .pill.pending {
+      background: rgba(255,176,32,.15);
+      color: #ffd699;
+      border-color: rgba(255,176,32,.4);
+    }
+    body[data-theme="light"] .pill.pending {
+      background: rgba(178,113,0,.12);
+      color: #8a5a00;
+      border-color: rgba(178,113,0,.4);
+    }
     .muted { color: var(--muted); }
     table {
       width: 100%; border-collapse: collapse; overflow: hidden;
@@ -432,7 +442,7 @@
           <div class="field s6">
             <label for="timerStartTime">Startzeit (optional, heute)</label>
             <input id="timerStartTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerStartHint">
-            <div id="timerStartHint" class="ticket-help">Leer = jetzt beim Start.</div>
+            <div id="timerStartHint" class="ticket-help">Leer = jetzt beim Start. Auch eine spätere Uhrzeit heute ist möglich.</div>
           </div>
           <div class="field s6">
             <label for="timerEndTime">Endzeit (optional, heute)</label>
@@ -1622,10 +1632,6 @@
             setFieldError(dom.timerStartTime, 'Die eingegebene Startzeit ist ungültig.');
             return;
           }
-          if (requestedStartTs > nowTs) {
-            setFieldError(dom.timerStartTime, 'Die Startzeit darf nicht in der Zukunft liegen.');
-            return;
-          }
           startTs = requestedStartTs;
         }
 
@@ -1654,10 +1660,15 @@
           showToast('Aktuell läuft kein Timer.', { variant: 'warn' });
           return;
         }
-        if (!internalStopTimer(true)) return;
+        const result = internalStopTimer(true);
+        if (!result) return;
         dom.timerStartTime.value = '';
         dom.timerEndTime.value = '';
-        showToast('Timer gestoppt und Eintrag gespeichert.', { variant: 'good' });
+        if (result === 'cancelled') {
+          showToast('Geplanter Timer wurde verworfen (noch nicht gestartet).', { variant: 'warn' });
+        } else {
+          showToast('Timer gestoppt und Eintrag gespeichert.', { variant: 'good' });
+        }
         renderAll();
       }
 
@@ -1666,6 +1677,7 @@
         if (!active) return false;
         const nowTs = Date.now();
         let endTs = nowTs;
+        let explicitEnd = false;
         if (useEndTimeInput && dom.timerEndTime.value) {
           const startDate = formatDateInput(new Date(active.startTs));
           const requestedEndTs = localDateTimeToTs(startDate, dom.timerEndTime.value);
@@ -1678,8 +1690,14 @@
             return false;
           }
           endTs = requestedEndTs;
+          explicitEnd = true;
         }
         if (endTs <= active.startTs) {
+          if (!explicitEnd) {
+            state.activeTimer = null;
+            saveState();
+            return 'cancelled';
+          }
           showToast('Ungültige Zeitspanne erkannt.', { variant: 'bad' });
           return false;
         }
@@ -1777,11 +1795,12 @@
         }
         const a = state.activeTimer;
         const elapsedMs = Date.now() - a.startTs;
+        const isPending = elapsedMs < 0;
         dom.currentTimer.innerHTML = '';
         const left = document.createElement('div');
-        left.innerHTML = `<div class="pill">● Aktiv</div><div style="margin-top:8px;"><strong>${escapeHtml(a.ticket || '—')}</strong></div><div class="muted">Start: ${formatDateTime(a.startTs)}</div>`;
+        left.innerHTML = `<div class="pill${isPending ? ' pending' : ''}">${isPending ? '● Geplant' : '● Aktiv'}</div><div style="margin-top:8px;"><strong>${escapeHtml(a.ticket || '—')}</strong></div><div class="muted">Start: ${formatDateTime(a.startTs)}</div>`;
         const right = document.createElement('div');
-        right.innerHTML = `<div class="live-duration">${formatDuration(elapsedMs)}</div><div class="muted">Live-Laufzeit</div>`;
+        right.innerHTML = `<div class="live-duration">${isPending ? '-' : ''}${formatDuration(Math.abs(elapsedMs))}</div><div class="muted">${isPending ? 'Beginnt in' : 'Live-Laufzeit'}</div>`;
         dom.currentTimer.append(left, right);
       }
 
