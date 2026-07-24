@@ -440,14 +440,9 @@
         </div>
         <div class="row">
           <div class="field s6">
-            <label for="timerStartTime">Startzeit (optional, heute)</label>
+            <label for="timerStartTime">Uhrzeit (optional, heute)</label>
             <input id="timerStartTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerStartHint">
-            <div id="timerStartHint" class="ticket-help">Leer = jetzt beim Start. Auch eine spätere Uhrzeit heute ist möglich.</div>
-          </div>
-          <div class="field s6">
-            <label for="timerEndTime">Endzeit (optional, heute)</label>
-            <input id="timerEndTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerEndHint">
-            <div id="timerEndHint" class="ticket-help">Leer = jetzt beim Stop. Muss nach der Startzeit liegen.</div>
+            <div id="timerStartHint" class="ticket-help">Leer = aktuelle Uhrzeit. Wird als Start- und Endzeit verwendet.</div>
           </div>
         </div>
         <div class="row">
@@ -1054,7 +1049,7 @@
 
       function bindElements() {
         [
-          'ticketNumber','ticketNumberPreset','timerStartTime','timerEndTime','taskNotes','startBtn','stopBtn','resetFormBtn',
+          'ticketNumber','ticketNumberPreset','timerStartTime','taskNotes','startBtn','stopBtn','resetFormBtn',
           'manualTicket','manualTicketPreset','manualDate','manualStart','manualEnd','manualPause','manualNotes','addManualBtn',
           'filterFrom','filterTo','filterTicket','groupBy','clearFiltersBtn','exportJsonBtn','exportCsvBtn','importBtn','importFile','clearAllBtn','ticketSuggestions',
           'prevDayBtn','todayBtn','nextDayBtn','dayFocus','applyDayBtn',
@@ -1309,7 +1304,6 @@
           dom.ticketNumberPreset.value = '';
           dom.taskNotes.value = '';
           dom.timerStartTime.value = '';
-          dom.timerEndTime.value = '';
         });
 
         dom.themeToggleBtn.addEventListener('click', toggleTheme);
@@ -1458,7 +1452,7 @@
       function handleGlobalShortcut(event) {
         // Ctrl/Cmd+Enter starts timer when typing in any timer-form field
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-          const timerFields = [dom.ticketNumber, dom.taskNotes, dom.timerStartTime, dom.timerEndTime];
+          const timerFields = [dom.ticketNumber, dom.taskNotes, dom.timerStartTime];
           if (timerFields.includes(event.target)) {
             event.preventDefault();
             dom.startBtn.click();
@@ -1648,9 +1642,8 @@
           if (!internalStopTimer(true)) return;
         }
 
-        state.activeTimer = { id: cryptoRandomId(), ticket, notes, startTs };
+        state.activeTimer = { id: cryptoRandomId(), ticket, notes, startTs, presetEndTs: startTs };
         dom.timerStartTime.value = '';
-        dom.timerEndTime.value = '';
         saveState();
         renderAll();
       }
@@ -1663,7 +1656,6 @@
         const result = internalStopTimer(true);
         if (!result) return;
         dom.timerStartTime.value = '';
-        dom.timerEndTime.value = '';
         if (result === 'cancelled') {
           showToast('Geplanter Timer wurde verworfen (noch nicht gestartet).', { variant: 'warn' });
         } else {
@@ -1678,15 +1670,10 @@
         const nowTs = Date.now();
         let endTs = nowTs;
         let explicitEnd = false;
-        if (useEndTimeInput && dom.timerEndTime.value) {
-          const startDate = formatDateInput(new Date(active.startTs));
-          const requestedEndTs = localDateTimeToTs(startDate, dom.timerEndTime.value);
-          if (!Number.isFinite(requestedEndTs)) {
-            setFieldError(dom.timerEndTime, 'Die eingegebene Endzeit ist ungültig.');
-            return false;
-          }
-          if (requestedEndTs <= active.startTs) {
-            setFieldError(dom.timerEndTime, 'Die Endzeit muss nach der Startzeit liegen.');
+        if (active.presetEndTs != null) {
+          const requestedEndTs = active.presetEndTs;
+          if (requestedEndTs < active.startTs) {
+            showToast('Ungültige Zeitspanne erkannt.', { variant: 'bad' });
             return false;
           }
           endTs = requestedEndTs;
