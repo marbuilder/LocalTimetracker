@@ -1642,7 +1642,7 @@
           if (!internalStopTimer(true)) return;
         }
 
-        state.activeTimer = { id: cryptoRandomId(), ticket, notes, startTs, presetEndTs: startTs };
+        state.activeTimer = { id: cryptoRandomId(), ticket, notes, startTs };
         dom.timerStartTime.value = '';
         saveState();
         renderAll();
@@ -1670,16 +1670,7 @@
         const nowTs = Date.now();
         let endTs = nowTs;
         let explicitEnd = false;
-        if (active.presetEndTs != null) {
-          const requestedEndTs = active.presetEndTs;
-          if (requestedEndTs < active.startTs) {
-            showToast('Ungültige Zeitspanne erkannt.', { variant: 'bad' });
-            return false;
-          }
-          endTs = requestedEndTs;
-          explicitEnd = true;
-        }
-        if (endTs < active.startTs) {
+        if (endTs <= active.startTs) {
           if (!explicitEnd) {
             state.activeTimer = null;
             saveState();
