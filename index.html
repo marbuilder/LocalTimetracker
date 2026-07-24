@@ -442,7 +442,7 @@
           <div class="field s6">
             <label for="timerStartTime">Uhrzeit (optional, heute)</label>
             <input id="timerStartTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerStartHint">
-            <div id="timerStartHint" class="ticket-help">Leer = aktuelle Uhrzeit. Wird als Start- und Endzeit verwendet.</div>
+            <div id="timerStartHint" class="ticket-help">Beim Start: Startzeit. Beim Stop: Endzeit. Leer = aktuelle Uhrzeit.</div>
           </div>
         </div>
         <div class="row">
@@ -1670,6 +1670,20 @@
         const nowTs = Date.now();
         let endTs = nowTs;
         let explicitEnd = false;
+        if (useEndTimeInput && dom.timerStartTime.value) {
+          const startDate = formatDateInput(new Date(active.startTs));
+          const requestedEndTs = localDateTimeToTs(startDate, dom.timerStartTime.value);
+          if (!Number.isFinite(requestedEndTs)) {
+            setFieldError(dom.timerStartTime, 'Die eingegebene Endzeit ist ungültig.');
+            return false;
+          }
+          if (requestedEndTs < active.startTs) {
+            setFieldError(dom.timerStartTime, 'Die Endzeit darf nicht vor der Startzeit liegen.');
+            return false;
+          }
+          endTs = requestedEndTs;
+          explicitEnd = true;
+        }
         if (endTs <= active.startTs) {
           if (!explicitEnd) {
             state.activeTimer = null;
