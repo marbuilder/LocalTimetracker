@@ -1679,7 +1679,7 @@
           endTs = requestedEndTs;
           explicitEnd = true;
         }
-        if (endTs <= active.startTs) {
+        if (endTs < active.startTs) {
           if (!explicitEnd) {
             state.activeTimer = null;
             saveState();
