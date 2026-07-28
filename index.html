@@ -203,6 +203,28 @@
     }
     .ticket-row select { font-size: 14px; }
     .ticket-help { margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .field-label-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+    .field-label-row label { margin-bottom: 0; }
+    .field-info { position: relative; flex-shrink: 0; }
+    .field-info summary {
+      list-style: none; cursor: pointer;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      width: 16px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; border: 1px solid var(--border);
+      user-select: none; line-height: 1;
+    }
+    .field-info summary::-webkit-details-marker { display: none; }
+    .field-info[open] summary { background: var(--btn-bg); color: var(--text); border-color: var(--muted); }
+    .field-info .field-info-tip {
+      position: absolute; left: 0; top: calc(100% + 6px);
+      min-width: 230px; max-width: 280px;
+      padding: 10px 12px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+      font-size: 12px; color: var(--text); line-height: 1.55;
+      z-index: 20;
+    }
+    .field-info .field-info-tip b { color: var(--accent); }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .stat { padding: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; }
     .stat .value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -440,9 +462,19 @@
         </div>
         <div class="row">
           <div class="field s6">
-            <label for="timerStartTime">Uhrzeit (optional, heute)</label>
-            <input id="timerStartTime" type="time" step="60" placeholder="Aktuelle Zeit" aria-describedby="timerStartHint">
-            <div id="timerStartHint" class="ticket-help">Beim Start: Startzeit. Beim Stop: Endzeit. Leer = aktuelle Uhrzeit.</div>
+            <div class="field-label-row">
+              <label for="timerStartTime">Uhrzeit (optional, heute)</label>
+              <details class="field-info">
+                <summary aria-label="Hinweise zur Uhrzeiteingabe">i</summary>
+                <div class="field-info-tip">
+                  <b>Feld leer</b><br>Start und Stop verwenden die aktuelle Uhrzeit.<br><br>
+                  <b>Beim Start ausgefüllt</b><br>Setzt die Startzeit; Feld leert sich danach automatisch.<br><br>
+                  <b>Beim Stop ausgefüllt</b><br>Setzt die Endzeit des laufenden Timers.<br><br>
+                  <b>Timer wechseln</b><br>Die Uhrzeit wird als Endzeit des alten und gleichzeitig als Startzeit des neuen Eintrags verwendet.
+                </div>
+              </details>
+            </div>
+            <input id="timerStartTime" type="time" step="60" placeholder="Aktuelle Zeit">
           </div>
         </div>
         <div class="row">
