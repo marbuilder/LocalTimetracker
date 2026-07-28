@@ -91,7 +91,7 @@
           assert('backdated timer start is persisted instead of hard-coded Date.now()', startTimer.includes('startTs') && startTimer.includes('requestedStartTs'), startTimer);
           assert('future same-day timer starts are now allowed (no longer rejected)', !startTimer.includes('Die Startzeit darf nicht in der Zukunft liegen.'), startTimer);
           assert('future timer end times are now allowed (no longer rejected at stop)', !internalStopTimer.includes('Die Endzeit darf nicht in der Zukunft liegen'), internalStopTimer);
-          assert('end time must be after start time (validation persists)', internalStopTimer.includes('Die Endzeit muss nach der Startzeit liegen'), internalStopTimer);
+          assert('end time must be after start time (validation persists)', internalStopTimer.includes('Die Endzeit darf nicht vor der Startzeit liegen'), internalStopTimer);
 
           document.getElementById('payload').textContent = JSON.stringify({
             today,
