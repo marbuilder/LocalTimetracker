@@ -860,6 +860,7 @@
         pomodoro.endTs = Date.now() + minutes * 60000;
         savePomodoroState();
         requestPomodoroNotificationPermission();
+        ensurePomodoroAudioContext();
         renderPomodoro();
         showToast(`Pomodoro-Timer gestartet (${minutes} Min.).`, { variant: 'good' });
       }
@@ -910,6 +911,7 @@
         pomodoro.endTs = null;
         savePomodoroState();
         notifyPomodoroDone();
+        playPomodoroSound();
         showToast('Pomodoro-Timer abgelaufen! Zeit für eine Pause.', { variant: 'good', timeoutMs: 8000 });
         renderPomodoro();
       }
@@ -927,6 +929,39 @@
           new Notification('Pomodoro abgeschlossen', { body: 'Zeit für eine Pause.', tag: 'pomodoro-done' });
         } catch (err) {
           console.warn('Pomodoro-Benachrichtigung fehlgeschlagen.', err);
+        }
+      }
+
+      let pomodoroAudioCtx = null;
+
+      function ensurePomodoroAudioContext() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        if (!pomodoroAudioCtx) pomodoroAudioCtx = new AudioCtx();
+        if (pomodoroAudioCtx.state === 'suspended') pomodoroAudioCtx.resume().catch(() => {});
+        return pomodoroAudioCtx;
+      }
+
+      function playPomodoroSound() {
+        try {
+          const ctx = ensurePomodoroAudioContext();
+          if (!ctx) return;
+          const now = ctx.currentTime;
+          [{ offset: 0, freq: 880 }, { offset: 0.18, freq: 1046.5 }].forEach(({ offset, freq }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, now + offset);
+            gain.gain.exponentialRampToValueAtTime(0.2, now + offset + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + offset);
+            osc.stop(now + offset + 0.18);
+          });
+        } catch (err) {
+          console.warn('Pomodoro-Signalton konnte nicht abgespielt werden.', err);
         }
       }
 
