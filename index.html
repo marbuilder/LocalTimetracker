@@ -478,7 +478,10 @@
             </div>
           </div>
         </div>
-        <div class="live-duration" id="pomodoroDisplay">25:00</div>
+        <div>
+          <div class="live-duration" id="pomodoroDisplay">25:00</div>
+          <div class="muted" id="pomodoroSubtitle">Bereit</div>
+        </div>
       </div>
     </div>
 
@@ -882,6 +885,7 @@
           dom.pomodoroPill.textContent = '⏱ Pomodoro bereit';
           dom.pomodoroPill.classList.remove('pending');
           dom.pomodoroDisplay.textContent = formatPomodoroClock(pomodoro.minutes * 60000);
+          dom.pomodoroSubtitle.textContent = 'Bereit';
           return;
         }
         const remainingMs = pomodoro.endTs - Date.now();
@@ -892,6 +896,7 @@
         dom.pomodoroPill.textContent = '● Pomodoro läuft';
         dom.pomodoroPill.classList.add('pending');
         dom.pomodoroDisplay.textContent = formatPomodoroClock(remainingMs);
+        dom.pomodoroSubtitle.textContent = 'Verbleibende Zeit';
       }
 
       function formatPomodoroClock(ms) {
@@ -1220,7 +1225,7 @@
           'presetTicketInput','addPresetTicketBtn','presetListContainer','exportTicketsBtn','importTicketsBtn','importTicketsFile',
           'createSnapshotBtn','snapshotListContainer',
           'themeToggleBtn',
-          'pomodoroBar','pomodoroPill','pomodoroDisplay','pomodoroDuration','pomodoroStartBtn','pomodoroStopBtn',
+          'pomodoroBar','pomodoroPill','pomodoroDisplay','pomodoroSubtitle','pomodoroDuration','pomodoroStartBtn','pomodoroStopBtn',
           'currentTimer','stats','summaryContainer','entriesContainer','summaryChart','chartSubtitle','chartTooltip',
           'editDialog','editId','editTicket','editTicketPreset','editDate','editStart','editEnd','editPause','editNotes','cancelEditBtn','saveEditBtn',
           'confirmDialog','confirmDialogTitle','confirmDialogMessage','confirmDialogActions','toastRoot'
