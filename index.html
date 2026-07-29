@@ -251,11 +251,11 @@
       gap: 12px;
     }
     .pomodoro-bar { flex-wrap: wrap; }
-    .pomodoro-info { display: flex; flex-direction: column; gap: 6px; }
-    .pomodoro-controls { display: flex; flex-direction: column; gap: 6px; min-width: 160px; }
-    .pomodoro-controls select { min-height: 36px; }
+    .pomodoro-info { display: flex; flex-direction: column; gap: 8px; }
+    .pomodoro-controls { display: flex; gap: 8px; align-items: center; }
+    .pomodoro-controls select { width: auto; min-height: 36px; }
     .pomodoro-buttons { display: flex; gap: 8px; }
-    .pomodoro-buttons button { min-height: 36px; }
+    .pomodoro-buttons button { width: auto; min-height: 36px; }
     .pomodoro-controls select:disabled,
     .pomodoro-buttons button:disabled {
       opacity: .5; cursor: not-allowed;
@@ -463,22 +463,22 @@
       <div id="pomodoroBar" class="current pomodoro-bar sticky-bar" aria-live="polite">
         <div class="pomodoro-info">
           <div class="pill" id="pomodoroPill">⏱ Pomodoro bereit</div>
-          <div class="live-duration" id="pomodoroDisplay">25:00</div>
-        </div>
-        <div class="pomodoro-controls">
-          <select id="pomodoroDuration" aria-label="Pomodoro-Dauer wählen">
-            <option value="5">5 Min.</option>
-            <option value="15">15 Min.</option>
-            <option value="25" selected>25 Min.</option>
-            <option value="30">30 Min.</option>
-            <option value="45">45 Min.</option>
-            <option value="60">60 Min.</option>
-          </select>
-          <div class="pomodoro-buttons">
-            <button id="pomodoroStartBtn" class="good" type="button">Start</button>
-            <button id="pomodoroStopBtn" class="warn" type="button">Stop</button>
+          <div class="pomodoro-controls">
+            <select id="pomodoroDuration" aria-label="Pomodoro-Dauer wählen">
+              <option value="5">5 Min.</option>
+              <option value="15">15 Min.</option>
+              <option value="25" selected>25 Min.</option>
+              <option value="30">30 Min.</option>
+              <option value="45">45 Min.</option>
+              <option value="60">60 Min.</option>
+            </select>
+            <div class="pomodoro-buttons">
+              <button id="pomodoroStartBtn" class="good" type="button">Start</button>
+              <button id="pomodoroStopBtn" class="warn" type="button">Stop</button>
+            </div>
           </div>
         </div>
+        <div class="live-duration" id="pomodoroDisplay">25:00</div>
       </div>
     </div>
 
