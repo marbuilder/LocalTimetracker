@@ -251,6 +251,7 @@
       gap: 12px;
     }
     .pomodoro-bar { flex-wrap: wrap; }
+    .pomodoro-count { min-width: 168px; text-align: right; }
     .pomodoro-info { display: flex; flex-direction: column; gap: 8px; }
     .pomodoro-controls { display: flex; gap: 8px; align-items: center; }
     .pomodoro-controls select { width: auto; min-height: 36px; }
@@ -478,7 +479,7 @@
             </div>
           </div>
         </div>
-        <div>
+        <div class="pomodoro-count">
           <div class="live-duration" id="pomodoroDisplay">25:00</div>
           <div class="muted" id="pomodoroSubtitle">Bereit</div>
         </div>
