@@ -245,6 +245,21 @@
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.5px;
     }
+    .current-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .pomodoro-bar { flex-wrap: wrap; }
+    .pomodoro-info { display: flex; flex-direction: column; gap: 6px; }
+    .pomodoro-controls { display: flex; flex-direction: column; gap: 6px; min-width: 160px; }
+    .pomodoro-controls select { min-height: 36px; }
+    .pomodoro-buttons { display: flex; gap: 8px; }
+    .pomodoro-buttons button { min-height: 36px; }
+    .pomodoro-controls select:disabled,
+    .pomodoro-buttons button:disabled {
+      opacity: .5; cursor: not-allowed;
+    }
     .pill {
       display: inline-flex; gap: 8px; align-items: center;
       background: rgba(48,196,141,.15); color: #b8f0d8;
@@ -404,6 +419,7 @@
       .field, .field.s3, .field.s6, .field.s12 { grid-column: span 1; }
       .stats { grid-template-columns: 1fr; }
       .day-nav { grid-template-columns: 1fr; }
+      .current-row { grid-template-columns: 1fr; }
       .ticket-row { grid-template-columns: 1fr; }
       table, thead, tbody, th, td, tr { display: block; }
       thead { display: none; }
@@ -443,7 +459,29 @@
       <div class="stats" id="stats"></div>
     </div>
 
-    <div id="currentTimer" class="current sticky-bar" aria-live="polite"></div>
+    <div class="current-row">
+      <div id="currentTimer" class="current sticky-bar" aria-live="polite"></div>
+      <div id="pomodoroBar" class="current pomodoro-bar sticky-bar" aria-live="polite">
+        <div class="pomodoro-info">
+          <div class="pill" id="pomodoroPill">⏱ Pomodoro bereit</div>
+          <div class="live-duration" id="pomodoroDisplay">25:00</div>
+        </div>
+        <div class="pomodoro-controls">
+          <select id="pomodoroDuration" aria-label="Pomodoro-Dauer wählen">
+            <option value="5">5 Min.</option>
+            <option value="15">15 Min.</option>
+            <option value="25" selected>25 Min.</option>
+            <option value="30">30 Min.</option>
+            <option value="45">45 Min.</option>
+            <option value="60">60 Min.</option>
+          </select>
+          <div class="pomodoro-buttons">
+            <button id="pomodoroStartBtn" class="good" type="button">Start</button>
+            <button id="pomodoroStopBtn" class="warn" type="button">Stop</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="grid">
       <section class="panel">
@@ -723,6 +761,9 @@
       const SNAPSHOT_PREFIX = STORAGE_KEY + '-snapshot-';
       const MAX_MANUAL_SNAPSHOTS = 5;
       const TICKET_PRESETS = [];
+      const POMODORO_KEY = STORAGE_KEY + '-pomodoro';
+      const POMODORO_DEFAULT_MINUTES = 25;
+      const POMODORO_ALLOWED_MINUTES = [5, 15, 25, 30, 45, 60];
 
       const dom = {};
       const qs = (id) => document.getElementById(id);
@@ -733,6 +774,7 @@
 
       let customTickets = loadCustomTickets();
       const state = loadState();
+      let pomodoro = loadPomodoroState();
       bindElements();
       applyTheme(loadTheme());
       restoreDetailsState();
@@ -744,6 +786,7 @@
       if (viewMode() === 'week') applyWeekOfFocusedDay();
       const wasAutoStoppedAtBoot = autoStopActiveTimerIfDayEnded();
       renderAll();
+      renderPomodoro();
       renderSnapshotList();
       scheduleMidnightRefresh();
       if (wasAutoStoppedAtBoot) {
@@ -756,6 +799,7 @@
         } else {
           renderCurrentTimer();
         }
+        renderPomodoro();
       }, 1000);
 
       function loadTheme() {
@@ -791,6 +835,96 @@
         try {
           renderChart(buildSummaryRows(getFilteredEntries(), dom.groupBy.value));
         } catch {}
+      }
+
+      function loadPomodoroState() {
+        try {
+          const raw = localStorage.getItem(POMODORO_KEY);
+          const parsed = raw ? JSON.parse(raw) : null;
+          const minutes = parsed && POMODORO_ALLOWED_MINUTES.includes(parsed.minutes) ? parsed.minutes : POMODORO_DEFAULT_MINUTES;
+          const endTs = parsed && Number.isFinite(parsed.endTs) ? parsed.endTs : null;
+          return { minutes, endTs };
+        } catch {
+          return { minutes: POMODORO_DEFAULT_MINUTES, endTs: null };
+        }
+      }
+
+      function savePomodoroState() {
+        localStorage.setItem(POMODORO_KEY, JSON.stringify(pomodoro));
+      }
+
+      function startPomodoro() {
+        const minutes = clampNumber(dom.pomodoroDuration.value, 1, 180) || POMODORO_DEFAULT_MINUTES;
+        pomodoro.minutes = minutes;
+        pomodoro.endTs = Date.now() + minutes * 60000;
+        savePomodoroState();
+        requestPomodoroNotificationPermission();
+        renderPomodoro();
+        showToast(`Pomodoro-Timer gestartet (${minutes} Min.).`, { variant: 'good' });
+      }
+
+      function stopPomodoro(opts = {}) {
+        if (!pomodoro.endTs) {
+          if (!opts.silent) showToast('Kein Pomodoro-Timer aktiv.', { variant: 'warn' });
+          return;
+        }
+        pomodoro.endTs = null;
+        savePomodoroState();
+        renderPomodoro();
+        if (!opts.silent) showToast('Pomodoro-Timer gestoppt.', { variant: 'warn' });
+      }
+
+      function renderPomodoro() {
+        const running = !!pomodoro.endTs;
+        if (document.activeElement !== dom.pomodoroDuration) dom.pomodoroDuration.value = String(pomodoro.minutes);
+        dom.pomodoroDuration.disabled = running;
+        dom.pomodoroStartBtn.disabled = running;
+        dom.pomodoroStopBtn.disabled = !running;
+        if (!running) {
+          dom.pomodoroPill.textContent = '⏱ Pomodoro bereit';
+          dom.pomodoroPill.classList.remove('pending');
+          dom.pomodoroDisplay.textContent = formatPomodoroClock(pomodoro.minutes * 60000);
+          return;
+        }
+        const remainingMs = pomodoro.endTs - Date.now();
+        if (remainingMs <= 0) {
+          handlePomodoroExpired();
+          return;
+        }
+        dom.pomodoroPill.textContent = '● Pomodoro läuft';
+        dom.pomodoroPill.classList.add('pending');
+        dom.pomodoroDisplay.textContent = formatPomodoroClock(remainingMs);
+      }
+
+      function formatPomodoroClock(ms) {
+        const totalSec = Math.max(0, Math.ceil(ms / 1000));
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function handlePomodoroExpired() {
+        pomodoro.endTs = null;
+        savePomodoroState();
+        notifyPomodoroDone();
+        showToast('Pomodoro-Timer abgelaufen! Zeit für eine Pause.', { variant: 'good', timeoutMs: 8000 });
+        renderPomodoro();
+      }
+
+      function requestPomodoroNotificationPermission() {
+        if (typeof Notification === 'undefined') return;
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().catch(() => {});
+        }
+      }
+
+      function notifyPomodoroDone() {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        try {
+          new Notification('Pomodoro abgeschlossen', { body: 'Zeit für eine Pause.', tag: 'pomodoro-done' });
+        } catch (err) {
+          console.warn('Pomodoro-Benachrichtigung fehlgeschlagen.', err);
+        }
       }
 
       function loadUiState() {
@@ -1088,6 +1222,7 @@
           'presetTicketInput','addPresetTicketBtn','presetListContainer','exportTicketsBtn','importTicketsBtn','importTicketsFile',
           'createSnapshotBtn','snapshotListContainer',
           'themeToggleBtn',
+          'pomodoroBar','pomodoroPill','pomodoroDisplay','pomodoroDuration','pomodoroStartBtn','pomodoroStopBtn',
           'currentTimer','stats','summaryContainer','entriesContainer','summaryChart','chartSubtitle','chartTooltip',
           'editDialog','editId','editTicket','editTicketPreset','editDate','editStart','editEnd','editPause','editNotes','cancelEditBtn','saveEditBtn',
           'confirmDialog','confirmDialogTitle','confirmDialogMessage','confirmDialogActions','toastRoot'
@@ -1339,6 +1474,15 @@
         });
 
         dom.themeToggleBtn.addEventListener('click', toggleTheme);
+
+        dom.pomodoroStartBtn.addEventListener('click', startPomodoro);
+        dom.pomodoroStopBtn.addEventListener('click', () => stopPomodoro());
+        dom.pomodoroDuration.addEventListener('change', () => {
+          if (pomodoro.endTs) return;
+          pomodoro.minutes = clampNumber(dom.pomodoroDuration.value, 1, 180) || POMODORO_DEFAULT_MINUTES;
+          savePomodoroState();
+          renderPomodoro();
+        });
 
         function applyPresetSelect(selectEl, inputEl) {
           const value = sanitizeText(selectEl.value, 60);
